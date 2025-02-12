@@ -1,0 +1,14 @@
+You will analyze this table data using the provided context and create an enriched description.
+
+IMPORTANT: Your response must be formatted exactly as shown below, with your generated content placed inside the XML tags:
+
+<table_id>{table_id}</table_id>
+<raw_table>{table_json}</raw_table>
+<contextualized_table>
+[Place your enriched description here. Explain the table's content in detail, incorporating relevant context to enhance understanding.]
+</contextualized_table>
+
+Context for reference:
+{context}
+
+Remember: Place your enriched description INSIDE the contextualized_table tags. Do not modify the other tags. 

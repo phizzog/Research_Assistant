@@ -1,0 +1,14 @@
+You will analyze this text chunk using the provided context and create an enriched version.
+
+IMPORTANT: Your response must be formatted exactly as shown below, with your generated content placed inside the XML tags:
+
+<chunk_id>{chunk_id}</chunk_id>
+<raw_text>{chunk_text}</raw_text>
+<contextualized_chunk>
+[Place your enriched version here. Integrate relevant context to enhance understanding while maintaining the original meaning.]
+</contextualized_chunk>
+
+Context for reference:
+{context}
+
+Remember: Place your enriched version INSIDE the contextualized_chunk tags. Do not modify the other tags. 
