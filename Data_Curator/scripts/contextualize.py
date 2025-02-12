@@ -10,6 +10,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 import requests  # Add this import for making HTTP requests
+from .config import ContextConfig  # Add this import
 
 # -----------------------------------------------------------------------------
 # Load environment variables
@@ -54,19 +55,12 @@ client = OpenAI(
     api_key='ollama'
 )
 
-logger.info(f"Using Ollama model: gemma:7b")
+logger.info(f"Using Ollama model for contextualization: gemma2:2b")
 
 # -----------------------------------------------------------------------------
 # Dataclass config
 # -----------------------------------------------------------------------------
-@dataclass
-class ChunkingConfig:
-    context_pages: int = 5          # not specifically used here, but kept if needed
-    max_retries: int = 2
-    cooldown: float = 0.1
-    model: str = "gemma:7b"
-    max_tokens: int = 300          # for token-based chunking
-    overlap_tokens: int = 50       # overlap for token-based chunking
+config = ContextConfig()  # Use the contextualization config instead
 
 # -----------------------------------------------------------------------------
 # Utility: Tag extraction
@@ -85,7 +79,7 @@ def extract_tag(text: str, tag: str) -> str:
 # -----------------------------------------------------------------------------
 # Utility: Get raw response from Ollama (without JSON parsing)
 # -----------------------------------------------------------------------------
-def get_raw_response(prompt: str, config: ChunkingConfig) -> str:
+def get_raw_response(prompt: str, config: ContextConfig) -> str:
     """
     Sends a prompt to Ollama using its native API and returns the complete text response.
     """
@@ -158,7 +152,7 @@ def generate_chunk_context(
     chunk_text: str,
     context: str,
     chunk_id: str,
-    config: ChunkingConfig
+    config: ContextConfig
 ) -> dict:
     """
     Creates a prompt to enrich the chunk_text with the context.
@@ -203,7 +197,7 @@ def generate_table_context_with_tags(
     table_data: List[List[str]],
     context: str,
     table_id: str,
-    config: ChunkingConfig
+    config: ContextConfig
 ) -> dict:
     """
     Creates a prompt to enrich table_data with the context.
@@ -280,7 +274,7 @@ def transform_document(input_path: str, output_path: str):
             original_data = json.load(f)
 
         # Configuration
-        config = ChunkingConfig()
+        config = ContextConfig()  # Use ContextConfig instead of ChunkingConfig
         logger.info(f"Using config: {config}")
 
         document_metadata = original_data.get("document", {})

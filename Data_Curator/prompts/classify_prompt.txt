@@ -1,0 +1,16 @@
+Analyze this text and classify it as either 'qualitative', 'quantitative', 'mixed', or 'general' research.
+Use these definitions to guide your classification:
+
+Qualitative Research:
+{qualitative_def}
+
+Quantitative Research:
+{quantitative_def}
+
+Mixed Methods:
+{mixed_def}
+
+Text to classify:
+{text}
+
+Respond with ONLY ONE of these exact words: qualitative, quantitative, mixed, or general 
