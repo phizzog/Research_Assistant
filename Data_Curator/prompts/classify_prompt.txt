@@ -1,16 +1,43 @@
-Analyze this text and classify it as either 'qualitative', 'quantitative', 'mixed', or 'general' research.
-Use these definitions to guide your classification:
+You are tasked with classifying a given text as either 'qualitative', 'quantitative', 'mixed', or 'general' research. To help you make this classification, please use the following definitions:
 
 Qualitative Research:
-{qualitative_def}
+<qualitative_def>
+{{qualitative_def}}
+</qualitative_def>
 
 Quantitative Research:
-{quantitative_def}
+<quantitative_def>
+{{quantitative_def}}
+</quantitative_def>
 
 Mixed Methods:
-{mixed_def}
+<mixed_def>
+{{mixed_def}}
+</mixed_def>
 
-Text to classify:
-{text}
+Now, carefully read and analyze the following text:
 
-Respond with ONLY ONE of these exact words: qualitative, quantitative, mixed, or general 
+<text_to_classify>
+{{text}}
+</text_to_classify>
+
+Based on the definitions provided and your analysis of the text, determine which category it best fits into. Consider the following:
+
+1. Does the text primarily discuss non-numerical data, experiences, or interpretations?
+2. Does it focus on numerical data, statistical analysis, or measurable variables?
+3. Does it combine both qualitative and quantitative elements?
+4. If it doesn't clearly fit into any of these categories, it may be classified as 'general'.
+
+Provide your reasoning for the classification in <reasoning> tags. Your reasoning should be concise but clear, explaining why you believe the text fits best into the chosen category.
+
+After providing your reasoning, give your final classification as a single word response. Use ONLY ONE of these exact words: qualitative, quantitative, mixed, or general.
+
+Your complete response should be structured as follows:
+
+<reasoning>
+[Your reasoning here]
+</reasoning>
+
+<classification>
+[Your one-word classification here]
+</classification>

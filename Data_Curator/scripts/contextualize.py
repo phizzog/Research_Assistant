@@ -155,7 +155,7 @@ def generate_chunk_context(
     config: ContextConfig
 ) -> dict:
     """
-    Creates a prompt to enrich the chunk_text with the context.
+    Creates a prompt to enrich the chunk_text with the context using a template.
     Returns a dictionary containing:
     {
         "chunk_id": str,
@@ -163,20 +163,15 @@ def generate_chunk_context(
         "contextualized_chunk": str
     }
     """
-    prompt = f"""You will analyze this text chunk using the provided context and create an enriched version.
+    # Read the prompt template
+    prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "chunk_prompt.txt")
+    with open(prompt_path, 'r') as f:
+        prompt_template = f.read()
 
-IMPORTANT: Your response must be formatted exactly as shown below, with your generated content placed inside the XML tags:
-
-<chunk_id>{chunk_id}</chunk_id>
-<raw_text>{chunk_text}</raw_text>
-<contextualized_chunk>
-[Place your enriched version here. Integrate relevant context to enhance understanding while maintaining the original meaning.]
-</contextualized_chunk>
-
-Context for reference:
-{context}
-
-Remember: Place your enriched version INSIDE the contextualized_chunk tags. Do not modify the other tags."""
+    # Replace template variables
+    prompt = prompt_template.replace("{{context}}", context)
+    prompt = prompt.replace("{{chunk_id}}", chunk_id)
+    prompt = prompt.replace("{{chunk_text}}", chunk_text)
 
     response_text = get_raw_response(prompt, config)
 
@@ -211,20 +206,15 @@ def generate_table_context_with_tags(
     # Convert table data to JSON string for embedding in prompt
     table_json = json.dumps(table_data)
 
-    prompt = f"""You will analyze this table data using the provided context and create an enriched description.
+    # Read the prompt template
+    prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "table_prompt.txt")
+    with open(prompt_path, 'r') as f:
+        prompt_template = f.read()
 
-IMPORTANT: Your response must be formatted exactly as shown below, with your generated content placed inside the XML tags:
-
-<table_id>{table_id}</table_id>
-<raw_table>{table_json}</raw_table>
-<contextualized_table>
-[Place your enriched description here. Explain the table's content in detail, incorporating relevant context to enhance understanding.]
-</contextualized_table>
-
-Context for reference:
-{context}
-
-Remember: Place your enriched description INSIDE the contextualized_table tags. Do not modify the other tags."""
+    # Replace template variables
+    prompt = prompt_template.replace("{{table_id}}", table_id)
+    prompt = prompt.replace("{{table_json}}", table_json)
+    prompt = prompt.replace("{{context}}", context)
 
     response_text = get_raw_response(prompt, config)
 

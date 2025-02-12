@@ -1,6 +1,27 @@
-You will analyze this text chunk using the provided context and create an enriched version.
+You are tasked with analyzing and enriching a text chunk using provided context. Your goal is to create a more informative version of the original text by integrating relevant information from the context while maintaining the original meaning.
 
-IMPORTANT: Your response must be formatted exactly as shown below, with your generated content placed inside the XML tags:
+First, review the following context carefully. This information will help you understand the broader topic and enrich the text chunk:
+
+<context>
+{{context}}
+</context>
+
+Now, you will be given a chunk of text to analyze and enrich. Here are the details:
+
+<chunk_id>{{chunk_id}}</chunk_id>
+
+<raw_text>
+{{chunk_text}}
+</raw_text>
+
+To create the contextualized chunk:
+1. Carefully read the raw text and understand its main points.
+2. Identify key concepts, terms, or ideas in the raw text that could benefit from additional context.
+3. Refer back to the provided context and find relevant information that can enhance the understanding of the raw text.
+4. Integrate this contextual information into the raw text, expanding on important points, clarifying concepts, or providing background information as needed.
+5. Ensure that the original meaning and intent of the raw text are preserved while adding depth and clarity.
+
+Your output should be formatted exactly as follows:
 
 <chunk_id>{chunk_id}</chunk_id>
 <raw_text>{chunk_text}</raw_text>
@@ -8,7 +29,11 @@ IMPORTANT: Your response must be formatted exactly as shown below, with your gen
 [Place your enriched version here. Integrate relevant context to enhance understanding while maintaining the original meaning.]
 </contextualized_chunk>
 
-Context for reference:
-{context}
+Additional guidelines:
+- Maintain a coherent flow in the contextualized chunk.
+- Use clear and concise language.
+- Do not introduce information that contradicts the original text.
+- If the raw text contains factual errors based on the provided context, you may subtly correct them in the contextualized version.
+- Aim to expand the text by approximately 30-50%, depending on how much relevant context is available.
 
-Remember: Place your enriched version INSIDE the contextualized_chunk tags. Do not modify the other tags. 
+Remember: Place your enriched version INSIDE the contextualized_chunk tags. Do not modify the other tags or their content.

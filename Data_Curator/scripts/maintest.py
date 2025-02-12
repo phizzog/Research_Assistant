@@ -74,12 +74,19 @@ def setup_logging() -> None:
     
     return logger
 
-def transform_document(input_path: str, output_path: str) -> None:
+def transform_document(input_path: str, output_path: str, start_page: int = 0, end_page: int = None) -> None:
     """
     Main function to transform a document by chunking and contextualizing its content.
+    
+    Args:
+        input_path (str): Path to input JSON file
+        output_path (str): Path to output JSON file
+        start_page (int): Starting page number (0-based index)
+        end_page (int): Ending page number (0-based index, inclusive). If None, process until the last page.
     """
     logger = setup_logging()
     logger.info(f"Starting document transformation: {input_path}")
+    logger.info(f"Processing pages {start_page} to {end_page if end_page is not None else 'end'}")
     
     start_time = datetime.datetime.now()
     perf_logger = logging.getLogger('performance')
@@ -88,6 +95,7 @@ def transform_document(input_path: str, output_path: str) -> None:
     perf_logger.info(
         f"Transform Process Started\n"
         f"├─ Input: {input_path}\n"
+        f"├─ Page Range: {start_page} to {end_page if end_page is not None else 'end'}\n"
         f"├─ Time: {start_time}\n"
         f"└─ Status: Initializing..."
     )
@@ -110,12 +118,21 @@ def transform_document(input_path: str, output_path: str) -> None:
         document_metadata = original_data.get("document", {})
         pages = original_data.get("pages", [])
 
+        # Validate and adjust page range
+        if end_page is None:
+            end_page = len(pages) - 1
+        end_page = min(end_page, len(pages) - 1)
+        start_page = max(0, min(start_page, end_page))
+
+        # Select only the pages in the specified range
+        pages = pages[start_page:end_page + 1]
+
         new_pages = []
         total_chunks_count = 0
 
         # Process each page
         for i, page in enumerate(pages):
-            page_id = page.get("page_id", f"page_{i}")
+            page_id = page.get("page_id", f"page_{i + start_page}")
             pdf_title = page.get("pdf_title", "")
             current_text = page.get("text", "")
 
@@ -130,7 +147,7 @@ def transform_document(input_path: str, output_path: str) -> None:
             
             perf_logger.info(
                 f"Page Processing Metrics\n"
-                f"├─ Page: {i+1}/{len(pages)}\n"
+                f"├─ Page: {i + start_page}/{end_page}\n"
                 f"├─ Chunks Generated: {len(text_chunks)}\n"
                 f"├─ Chunking Duration: {chunking_duration:.2f}s\n"
                 f"└─ Status: Processing chunks..."
@@ -269,6 +286,10 @@ if __name__ == "__main__":
         input_path = str(script_dir / "input" / "test.json")
         output_path = str(script_dir / "output" / "contextualized_output.json")
         
-        transform_document(input_path, output_path)
+        # Define the page range you want to process (0-based indexing)
+        start_page = 253  # Start from the first page
+        end_page = 258    # Process up to and including page 2
+        
+        transform_document(input_path, output_path, start_page, end_page)
     except Exception as e:
         logging.error(f"Failed to process document: {str(e)}") 

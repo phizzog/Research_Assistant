@@ -1,14 +1,33 @@
-You will analyze this table data using the provided context and create an enriched description.
+You are tasked with analyzing table data and creating an enriched description using provided context. Your response must be formatted exactly as shown below:
 
-IMPORTANT: Your response must be formatted exactly as shown below, with your generated content placed inside the XML tags:
-
-<table_id>{table_id}</table_id>
-<raw_table>{table_json}</raw_table>
+<table_id>{{table_id}}</table_id>
+<raw_table>{{table_json}}</raw_table>
 <contextualized_table>
-[Place your enriched description here. Explain the table's content in detail, incorporating relevant context to enhance understanding.]
+[Your enriched description will go here]
 </contextualized_table>
 
-Context for reference:
-{context}
+To complete this task, follow these steps:
 
-Remember: Place your enriched description INSIDE the contextualized_table tags. Do not modify the other tags. 
+1. Examine the table_id and raw_table data provided above.
+
+2. Carefully read and understand the following context:
+<context>
+{{context}}
+</context>
+
+3. Analyze the table data in conjunction with the provided context. Look for connections, relevant information, and any insights that can be drawn from combining the table data with the contextual information.
+
+4. Create an enriched description of the table that:
+   a. Explains the table's content in detail
+   b. Incorporates relevant context to enhance understanding
+   c. Highlights any important relationships or patterns between the table data and the context
+   d. Provides additional insights or interpretations based on your analysis
+
+5. Place your enriched description inside the <contextualized_table> tags, replacing the placeholder text.
+
+Remember:
+- Your description should be comprehensive and insightful, demonstrating a deep understanding of both the table data and the context.
+- Do not modify the <table_id> or <raw_table> tags or their content.
+- Ensure your entire response, including the enriched description, is properly formatted within the specified XML tags.
+
+Begin your analysis and provide the enriched description as instructed.
