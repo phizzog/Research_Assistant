@@ -76,13 +76,19 @@ Your complete response should be structured as follows:
         )
         
         response.raise_for_status()
-        response_text = response.json().get('response', '').strip().lower()
+        response_text = response.json().get('response', '').strip()
         
-        # Extract classification from the response
-        if '<classification>' in response_text:
-            classification = response_text.split('<classification>')[-1].split('</classification>')[0].strip()
-        else:
-            classification = response_text.strip()
+        # Extract classification from the XML tags
+        classification = 'general'  # Default value
+        
+        # Look for classification tag
+        if '<classification>' in response_text and '</classification>' in response_text:
+            start_tag = '<classification>'
+            end_tag = '</classification>'
+            start_idx = response_text.find(start_tag) + len(start_tag)
+            end_idx = response_text.find(end_tag)
+            if start_idx != -1 and end_idx != -1:
+                classification = response_text[start_idx:end_idx].strip().lower()
         
         # Validate the response is one of our expected classifications
         valid_classifications = {'qualitative', 'quantitative', 'mixed', 'general'}

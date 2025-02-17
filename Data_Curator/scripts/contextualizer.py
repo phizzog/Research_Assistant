@@ -30,10 +30,28 @@ def generate_chunk_context(
 
     response_text = get_raw_response(prompt, config)
 
+    # Extract the raw text and classification separately
+    raw_text = extract_tag(response_text, "raw_text")
+    contextualized_chunk = extract_tag(response_text, "contextualized_chunk")
+    
+    # Extract just the text from the raw_text field if it's in JSON format
+    if raw_text.startswith("{'text':"):
+        try:
+            raw_data = eval(raw_text)
+            text = raw_data.get('text', '')
+            classification = raw_data.get('classification', 'general')
+        except:
+            text = raw_text
+            classification = 'general'
+    else:
+        text = raw_text
+        classification = 'general'
+
     return {
         "chunk_id": extract_tag(response_text, "chunk_id"),
-        "raw_text": extract_tag(response_text, "raw_text"),
-        "contextualized_chunk": extract_tag(response_text, "contextualized_chunk")
+        "text": text,
+        "classification": classification,
+        "contextualized_chunk": contextualized_chunk
     }
 
 def generate_table_context(
