@@ -72,6 +72,8 @@ secrets.json
 # Large data files
 *.csv
 *.json
+!package.json
+!*/package.json
 !Data_Curator/input/test.json
 !Data_Curator/JsonReference.md
 
