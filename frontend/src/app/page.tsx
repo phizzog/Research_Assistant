@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Chat from '@/components/Chat';
 import ResearchForm from '@/components/ResearchForm';
 import { ChatHistory, ChatMessage, initializeGemini } from '@/lib/gemini';
 
-export default function Home() {
+export default function HomePage() {
   const [messages, setMessages] = useState<ChatHistory>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -31,11 +31,13 @@ ${projectDetails}
       const response = result.response;
       const text = response.text();
 
-      // Add the initial messages to the chat
       setMessages([
         {
           role: 'assistant',
-          content: 'Welcome! I\'ve analyzed your research project. Here\'s my assessment:\n\n' + text + '\n\nWhat questions do you have about the suggested methodology?'
+          content:
+            "Welcome! I've analyzed your research project. Here's my assessment:\n\n" +
+            text +
+            "\n\nWhat questions do you have about the suggested methodology?"
         }
       ]);
       setShowChat(true);
@@ -44,7 +46,7 @@ ${projectDetails}
       setMessages([
         {
           role: 'assistant',
-          content: 'Sorry, I encountered an error analyzing your research project. Please try again.'
+          content: "Sorry, I encountered an error analyzing your research project. Please try again."
         }
       ]);
     } finally {
@@ -52,32 +54,42 @@ ${projectDetails}
     }
   };
 
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = async (message: string, file?: File) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      // Add user message to chat
+      // Add the user message to the chat
       const userMessage: ChatMessage = { role: 'user', content: message };
       const newMessages = [...messages, userMessage];
       setMessages(newMessages);
 
-      // Initialize Gemini (in production, use environment variable)
       const model = initializeGemini(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
+      let text = '';
 
-      // Get response from Gemini
-      const result = await model.generateContent(message);
-      const response = result.response;
-      const text = response.text();
+      if (file) {
+        // Handle file upload
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const result = await response.json();
+        text = result.text;
+      } else {
+        // Get response from Gemini
+        const result = await model.generateContent(message);
+        const response = result.response;
+        text = response.text();
+      }
 
-      // Add assistant's response to chat
+      // Add the assistant's response to the chat
       const assistantMessage: ChatMessage = { role: 'assistant', content: text };
       setMessages([...newMessages, assistantMessage]);
     } catch (error) {
       console.error('Error:', error);
-      // Handle error appropriately
       const errorMessage: ChatMessage = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: "Sorry, I encountered an error. Please try again."
       };
       setMessages([...messages, errorMessage]);
     } finally {

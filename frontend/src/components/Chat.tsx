@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FiSend } from 'react-icons/fi';
+import FileUpload from '@/components/FileUpload';
 import { ChatHistory, ChatMessage } from '@/lib/gemini';
 
 interface ChatProps {
-  onSendMessage: (message: string) => Promise<void>;
+  onSendMessage: (message: string, file?: File) => Promise<void>;
   messages: ChatHistory;
   isLoading: boolean;
 }
@@ -37,9 +38,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
         {messages.map((message, index) => (
           <div
             key={index}
-            className={`flex ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${
@@ -57,6 +56,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
 
       <form onSubmit={handleSubmit} className="p-4 bg-white border-t border-gray-200">
         <div className="flex items-center gap-2">
+          <FileUpload onFileUpload={(file) => onSendMessage('File uploaded', file)} />
           <input
             type="text"
             value={input}
@@ -76,4 +76,4 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
       </form>
     </div>
   );
-} 
+}
