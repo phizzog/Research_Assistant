@@ -14,12 +14,17 @@ Now, you will be given a chunk of text to analyze and enrich. Here are the detai
 {{chunk_text}}
 </raw_text>
 
+<classification>{{classification}}</classification>
+
+{{classification_instructions}}
+
 To create the contextualized chunk:
 1. Carefully read the raw text and understand its main points.
 2. Identify key concepts, terms, or ideas in the raw text that could benefit from additional context.
 3. Refer back to the provided context and find relevant information that can enhance the understanding of the raw text.
 4. Integrate this contextual information into the raw text, expanding on important points, clarifying concepts, or providing background information as needed.
 5. Ensure that the original meaning and intent of the raw text are preserved while adding depth and clarity.
+6. Consider the classification of the text when enriching it, focusing on aspects relevant to that type of research.
 
 Your output should be formatted exactly as follows:
 
@@ -35,5 +40,6 @@ Additional guidelines:
 - Do not introduce information that contradicts the original text.
 - If the raw text contains factual errors based on the provided context, you may subtly correct them in the contextualized version.
 - Aim to expand the text by approximately 30-50%, depending on how much relevant context is available.
+- Tailor your enrichment to the classification of the text (qualitative, quantitative, mixed, or general).
 
 Remember: Place your enriched version INSIDE the contextualized_chunk tags. Do not modify the other tags or their content.

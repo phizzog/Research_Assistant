@@ -12,20 +12,61 @@ def load_prompt_template(template_path: str) -> str:
         return f.read()
 
 def generate_chunk_context(
-    chunk_text: str,
+    chunk_data: dict,
     context: str,
     chunk_id: str,
     config: ChunkingConfig
 ) -> dict:
     """
     Creates a prompt to enrich the chunk_text with the context.
+    Uses the classification to provide more targeted contextualization.
     Returns a dictionary containing enriched chunk information.
+    
+    Args:
+        chunk_data: Dictionary containing text and classification
+        context: Surrounding context from adjacent chunks/pages
+        chunk_id: Unique identifier for the chunk
+        config: Configuration settings
     """
     template = load_prompt_template(CHUNK_PROMPT_PATH)
+    
+    # Extract text and classification from chunk_data
+    chunk_text = chunk_data.get("text", "")
+    classification = chunk_data.get("classification", "general")
+    
+    # Add classification-specific instructions to the prompt
+    classification_instructions = ""
+    if classification == "qualitative":
+        classification_instructions = (
+            "This text appears to be discussing qualitative research. "
+            "Focus on enriching interpretations, experiences, and non-numerical data. "
+            "Emphasize themes, patterns, and subjective elements."
+        )
+    elif classification == "quantitative":
+        classification_instructions = (
+            "This text appears to be discussing quantitative research. "
+            "Focus on enriching numerical data, statistical analysis, and measurable variables. "
+            "Emphasize relationships between variables and statistical significance."
+        )
+    elif classification == "mixed":
+        classification_instructions = (
+            "This text appears to be discussing mixed methods research. "
+            "Balance enrichment between qualitative and quantitative elements. "
+            "Emphasize how these different approaches complement each other."
+        )
+    else:  # general
+        classification_instructions = (
+            "This text appears to be general in nature. "
+            "Provide balanced enrichment focusing on key concepts and their relationships."
+        )
+    
+    # Format the prompt with all required values
     prompt = template.format(
         chunk_id=chunk_id,
         chunk_text=chunk_text,
-        context=context
+        context=context,
+        classification=classification,
+        classification_instructions=classification_instructions
     )
 
     response_text = get_raw_response(prompt, config)
@@ -35,12 +76,14 @@ def generate_chunk_context(
     contextualized_chunk = extract_tag(response_text, "contextualized_chunk")
     
     # Extract just the text from the raw_text field if it's in JSON format
-    if raw_text.startswith("{'text':"):
+    if raw_text.startswith("{'text':") or raw_text.startswith('{"text":'):
         try:
-            raw_data = eval(raw_text)
+            # Replace single quotes with double quotes for proper JSON parsing
+            json_text = raw_text.replace("'", '"')
+            raw_data = json.loads(json_text)
             text = raw_data.get('text', '')
             classification = raw_data.get('classification', 'general')
-        except:
+        except json.JSONDecodeError:
             text = raw_text
             classification = 'general'
     else:

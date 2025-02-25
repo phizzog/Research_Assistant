@@ -3,6 +3,7 @@ from .config import ChunkingConfig, CLASSIFY_PROMPT_PATH
 import json
 import requests
 from .definitions import DEFINITIONS
+import logging
 
 def classify_chunk(text: str, context: str, config: ChunkingConfig) -> str:
     """
@@ -14,57 +15,29 @@ def classify_chunk(text: str, context: str, config: ChunkingConfig) -> str:
         context: Surrounding context from adjacent chunks/pages
         config: Configuration settings
     """
-    # Construct the prompt directly in the code
-    prompt = f"""You are tasked with classifying a given text as either 'qualitative', 'quantitative', 'mixed', or 'general' research. To help you make this classification, please use the following definitions:
-
-Qualitative Research:
-<qualitative_def>
-{DEFINITIONS['qualitative']}
-</qualitative_def>
-
-Quantitative Research:
-<quantitative_def>
-{DEFINITIONS['quantitative']}
-</quantitative_def>
-
-Mixed Methods:
-<mixed_def>
-{DEFINITIONS['mixed']}
-</mixed_def>
-
-Now, carefully read and analyze the following text and its surrounding context:
-
-<context>
-{context}
-</context>
-
-<text_to_classify>
-{text}
-</text_to_classify>
-
-Based on the definitions provided and your analysis of both the text and its context, determine which category it best fits into. Consider the following:
-
-1. Does the text primarily discuss non-numerical data, experiences, or interpretations?
-2. Does it focus on numerical data, statistical analysis, or measurable variables?
-3. Does it combine both qualitative and quantitative elements?
-4. If it doesn't clearly fit into any of these categories, it may be classified as 'general'.
-
-Provide your reasoning for the classification in <reasoning> tags. Your reasoning should be concise but clear, explaining why you believe the text fits best into the chosen category.
-
-After providing your reasoning, give your final classification as a single word response. Use ONLY ONE of these exact words: qualitative, quantitative, mixed, or general.
-
-Your complete response should be structured as follows:
-
-<reasoning>
-[Your reasoning here]
-</reasoning>
-
-<classification>
-[Your one-word classification here]
-</classification>"""
+    logger = logging.getLogger(__name__)
+    logger.info(f"Starting classification of chunk with {len(text.split())} words")
+    
+    # Load the prompt template from file
+    try:
+        with open(CLASSIFY_PROMPT_PATH, 'r', encoding='utf-8') as f:
+            prompt_template = f.read()
+    except Exception as e:
+        logger.error(f"Error loading classification prompt template: {e}")
+        return 'general'  # Default if we can't load the prompt
+    
+    # Format the prompt with the required values
+    prompt = prompt_template.format(
+        qualitative_def=DEFINITIONS['qualitative'],
+        quantitative_def=DEFINITIONS['quantitative'],
+        mixed_def=DEFINITIONS['mixed'],
+        text=text,
+        context=context
+    )
 
     try:
-        # Make request to Ollama
+        logger.info(f"Sending classification request to Ollama at {config.ollama_base_url}")
+        # Make request to Ollama with a longer timeout
         response = requests.post(
             f"{config.ollama_base_url}/api/generate",
             json={
@@ -72,11 +45,12 @@ Your complete response should be structured as follows:
                 "prompt": prompt,
                 "stream": False
             },
-            timeout=30
+            timeout=60  # Increased timeout to 60 seconds
         )
         
         response.raise_for_status()
         response_text = response.json().get('response', '').strip()
+        logger.info(f"Received classification response from Ollama ({len(response_text)} chars)")
         
         # Extract classification from the XML tags
         classification = 'general'  # Default value
@@ -89,15 +63,26 @@ Your complete response should be structured as follows:
             end_idx = response_text.find(end_tag)
             if start_idx != -1 and end_idx != -1:
                 classification = response_text[start_idx:end_idx].strip().lower()
+                logger.info(f"Extracted classification: {classification}")
+        else:
+            logger.warning("Classification tags not found in response")
         
         # Validate the response is one of our expected classifications
         valid_classifications = {'qualitative', 'quantitative', 'mixed', 'general'}
         if classification in valid_classifications:
             return classification
+        
+        logger.warning(f"Invalid classification '{classification}', defaulting to 'general'")
         return 'general'  # Default if response is not valid
         
+    except requests.exceptions.Timeout:
+        logger.error(f"Timeout connecting to Ollama API at {config.ollama_base_url}")
+        return 'general'  # Default to general on timeout
+    except requests.exceptions.ConnectionError:
+        logger.error(f"Connection error to Ollama API at {config.ollama_base_url}")
+        return 'general'  # Default to general on connection error
     except Exception as e:
-        print(f"Error classifying chunk: {e}")
+        logger.error(f"Error classifying chunk: {e}", exc_info=True)
         return 'general'  # Default to general on error
 
 def process_table_data(table: Dict[str, Any], config: ChunkingConfig) -> List[dict]:
@@ -193,21 +178,41 @@ def get_page_context(pages: List[dict], current_page_index: int) -> str:
 
 def chunk_text_tokens(text: str, config: ChunkingConfig) -> List[dict]:
     """
-    Splits the text by whitespace, grouping up to max_tokens tokens,
-    then overlaps the last overlap_tokens tokens into the next chunk.
+    Splits the text into chunks, trying to preserve sentence boundaries when possible,
+    and ensuring chunks are of appropriate size with proper overlap.
     """
-    tokens = text.split()
+    import re
+    
+    # Split text into sentences
+    sentence_endings = r'(?<=[.!?])\s+'
+    sentences = re.split(sentence_endings, text)
+    
     chunks = []
-    start = 0
-
-    while start < len(tokens):
-        end = start + config.max_tokens
-        chunk_str = " ".join(tokens[start:end])
-        if chunk_str:
+    current_chunk = []
+    current_token_count = 0
+    
+    for sentence in sentences:
+        # Approximate token count by words (not perfect but better than nothing)
+        sentence_tokens = len(sentence.split())
+        
+        # If adding this sentence would exceed max_tokens, finalize the current chunk
+        if current_token_count + sentence_tokens > config.max_tokens and current_token_count > 0:
+            chunk_str = " ".join(current_chunk)
+            
             # Get surrounding context
-            context_start = max(0, start - config.overlap_tokens)
-            context_end = min(len(tokens), end + config.overlap_tokens)
-            context_str = " ".join(tokens[context_start:context_end])
+            chunk_tokens = chunk_str.split()
+            context_tokens = text.split()
+            
+            # Find position of chunk in the full text
+            chunk_start = 0
+            for i in range(len(context_tokens) - len(chunk_tokens) + 1):
+                if " ".join(context_tokens[i:i+len(chunk_tokens)]) == chunk_str:
+                    chunk_start = i
+                    break
+            
+            context_start = max(0, chunk_start - config.overlap_tokens)
+            context_end = min(len(context_tokens), chunk_start + len(chunk_tokens) + config.overlap_tokens)
+            context_str = " ".join(context_tokens[context_start:context_end])
             
             # Classify each chunk with its context
             classification = classify_chunk(chunk_str, context_str, config)
@@ -215,7 +220,40 @@ def chunk_text_tokens(text: str, config: ChunkingConfig) -> List[dict]:
                 "text": chunk_str,
                 "classification": classification
             })
-        # Move start to create overlap
-        start = max(end - config.overlap_tokens, end)
-
+            
+            # Start a new chunk with overlap
+            overlap_tokens = min(config.overlap_tokens, len(current_chunk))
+            current_chunk = current_chunk[-overlap_tokens:] if overlap_tokens > 0 else []
+            current_token_count = len(" ".join(current_chunk).split())
+        
+        # Add the sentence to the current chunk
+        current_chunk.append(sentence)
+        current_token_count += sentence_tokens
+    
+    # Don't forget the last chunk
+    if current_chunk:
+        chunk_str = " ".join(current_chunk)
+        
+        # Get surrounding context for the last chunk
+        chunk_tokens = chunk_str.split()
+        context_tokens = text.split()
+        
+        # Find position of chunk in the full text
+        chunk_start = 0
+        for i in range(len(context_tokens) - len(chunk_tokens) + 1):
+            if " ".join(context_tokens[i:i+len(chunk_tokens)]) == chunk_str:
+                chunk_start = i
+                break
+        
+        context_start = max(0, chunk_start - config.overlap_tokens)
+        context_end = min(len(context_tokens), chunk_start + len(chunk_tokens) + config.overlap_tokens)
+        context_str = " ".join(context_tokens[context_start:context_end])
+        
+        # Classify the last chunk
+        classification = classify_chunk(chunk_str, context_str, config)
+        chunks.append({
+            "text": chunk_str,
+            "classification": classification
+        })
+    
     return chunks 

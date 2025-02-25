@@ -14,7 +14,7 @@ class ChunkingConfig:
     context_pages: int = 5
     max_retries: int = 2
     cooldown: float = 0.1
-    model: str = "gemma2:9b-instruct-q8_0"
+    model: str = "mistral:latest"
     max_tokens: int = 300
     overlap_tokens: int = 50
     ollama_base_url: str = OLLAMA_BASE_URL
@@ -23,7 +23,7 @@ class ChunkingConfig:
 class ContextConfig:
     max_retries: int = 2
     cooldown: float = 0.1
-    model: str = "gemma2:2b"
+    model: str = "mistral:latest"
     ollama_base_url: str = OLLAMA_BASE_URL
 
 # Get the absolute path to the project root
