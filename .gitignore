@@ -72,6 +72,7 @@ secrets.json
 # Large data files
 *.csv
 *.json
+!frontend/tsconfig.json
 !package.json
 !*/package.json
 !frontend/src/lib/**/*
