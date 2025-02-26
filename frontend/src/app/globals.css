@@ -5,17 +5,41 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --input-text: #333333;
+  --placeholder: #9ca3af;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --input-text: #ededed;
+    --placeholder: #6b7280;
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, textarea {
+  color: var(--input-text);
+  font-size: 1rem;
+}
+
+::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+:-ms-input-placeholder {
+  color: var(--placeholder);
+}
+
+::-ms-input-placeholder {
+  color: var(--placeholder);
 }
