@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Chat from '@/components/Chat';
 import ResearchForm from '@/components/ResearchForm';
+import ProfileIcon from '@/components/ProfileIcon';
 import { ChatHistory, ChatMessage, initializeGemini } from '@/lib/gemini';
 
 export default function HomePage() {
@@ -100,9 +101,14 @@ ${projectDetails}
   return (
     <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
       <div className="w-full h-screen max-w-4xl mx-auto flex flex-col">
-        <header className="text-center py-6 px-4">
-          <h1 className="text-3xl font-bold text-indigo-900 mb-2">Research Assistant</h1>
-          <p className="text-indigo-600 text-lg font-medium">Your AI-powered research companion</p>
+        <header className="relative py-6 px-4">
+          <div className="absolute top-6 right-4">
+            <ProfileIcon />
+          </div>
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-indigo-900 mb-2">Research Assistant</h1>
+            <p className="text-indigo-600 text-lg font-medium">Your AI-powered research companion</p>
+          </div>
         </header>
         
         <div className="flex-1 overflow-hidden mx-4">

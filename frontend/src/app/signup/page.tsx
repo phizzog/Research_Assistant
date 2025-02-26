@@ -32,41 +32,54 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-indigo-50 to-white">
       <h1 className="text-3xl font-bold text-indigo-900 mb-4">Create an Account</h1>
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-sm">
+      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm">
         <div className="mb-4">
-          <label className="block text-gray-700">Email</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 p-2 border rounded w-full"
+            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
             required
           />
         </div>
         <div className="mb-4">
-          <label className="block text-gray-700">Password</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 p-2 border rounded w-full"
+            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
             required
           />
         </div>
         <div className="mb-4">
-          <label className="block text-gray-700">Confirm Password</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
           <input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="mt-1 p-2 border rounded w-full"
+            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
             required
           />
         </div>
         {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-        <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded">
+        <button 
+          type="submit" 
+          className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
           Sign Up
         </button>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Already have an account?{' '}
+          <button 
+            type="button" 
+            onClick={() => router.push('/signin')} 
+            className="text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            Sign In
+          </button>
+        </p>
       </form>
     </div>
   );
