@@ -1,14 +1,8 @@
 // app/page.tsx
 
-import { redirect } from 'next/navigation';
-
-export default function Home() {
-  redirect('/signin');
-  return null;
-}
-
 'use client';
 
+import { redirect } from 'next/navigation';
 import { useState } from 'react';
 import ResearchForm from '@/components/ResearchForm';
 import ResearchQuestionsForm from '@/components/ResearchQuestionsForm';
@@ -19,6 +13,10 @@ interface Response {
 }
 
 export default function Home() {
+  // Check if user is authenticated - if not, redirect to signin
+  // You might want to add your authentication check logic here
+  redirect('/signin');
+
   const [step, setStep] = useState(1);
   const [projectDetails, setProjectDetails] = useState({ title: '', description: '' });
 
