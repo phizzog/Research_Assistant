@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import supabase from '@/lib/supabase';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -21,7 +20,13 @@ export default function SignUpPage() {
     }
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
       // Redirect to sign in page after successful account creation
       router.push('/signin');
     } catch (err: any) {
