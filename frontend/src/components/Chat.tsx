@@ -2,13 +2,27 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FiSend } from 'react-icons/fi';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeHighlight from 'rehype-highlight';
+import FileUpload from '@/components/FileUpload';
 import { ChatHistory, ChatMessage } from '@/lib/gemini';
 
 interface ChatProps {
-  onSendMessage: (message: string) => Promise<void>;
+  onSendMessage: (message: string, file?: File) => Promise<void>;
   messages: ChatHistory;
   isLoading: boolean;
 }
+
+// Define types for markdown components
+type ComponentProps = {
+  node?: any;
+  inline?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+  [key: string]: any;
+};
 
 export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) {
   const [input, setInput] = useState('');
@@ -37,9 +51,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
         {messages.map((message, index) => (
           <div
             key={index}
-            className={`flex ${
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${
@@ -48,7 +60,61 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
                   : 'bg-white text-gray-800 border border-gray-200'
               }`}
             >
-              <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
+              {message.role === 'user' ? (
+                <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
+              ) : (
+                <div className="markdown-content text-[15px] leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                    components={{
+                      // Style code blocks
+                      code({ node, inline, className, children, ...props }: ComponentProps) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <div className="my-2 overflow-x-auto">
+                            <pre className="p-2 rounded bg-gray-100 text-gray-800 overflow-x-auto">
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            </pre>
+                          </div>
+                        ) : (
+                          <code className="bg-gray-100 text-gray-800 px-1 rounded" {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                      // Style links
+                      a: ({ node, ...props }: ComponentProps) => (
+                        <a 
+                          className="text-indigo-600 hover:underline" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          {...props}
+                        />
+                      ),
+                      // Style tables
+                      table: ({ node, ...props }: ComponentProps) => (
+                        <div className="overflow-x-auto my-4">
+                          <table className="min-w-full border border-gray-300" {...props} />
+                        </div>
+                      ),
+                      thead: ({ node, ...props }: ComponentProps) => (
+                        <thead className="bg-gray-100" {...props} />
+                      ),
+                      th: ({ node, ...props }: ComponentProps) => (
+                        <th className="border border-gray-300 px-4 py-2 text-left" {...props} />
+                      ),
+                      td: ({ node, ...props }: ComponentProps) => (
+                        <td className="border border-gray-300 px-4 py-2" {...props} />
+                      ),
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -57,12 +123,13 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
 
       <form onSubmit={handleSubmit} className="p-4 bg-white border-t border-gray-200">
         <div className="flex items-center gap-2">
+          <FileUpload onFileUpload={(file) => onSendMessage('File uploaded', file)} />
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 placeholder-gray-400"
+            className="flex-1 p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
             disabled={isLoading}
           />
           <button
@@ -76,4 +143,4 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
       </form>
     </div>
   );
-} 
+}

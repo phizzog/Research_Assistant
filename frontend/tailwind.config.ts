@@ -11,6 +11,11 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        "input-text": "var(--input-text)",
+        "placeholder": "var(--placeholder)",
+      },
+      fontFamily: {
+        sans: ['Segoe UI', 'Arial', 'Helvetica', 'sans-serif'],
       },
     },
   },

@@ -1,4 +1,12 @@
 // app/page.tsx
+
+import { redirect } from 'next/navigation';
+
+export default function Home() {
+  redirect('/signin');
+  return null;
+}
+
 'use client';
 
 import { useState } from 'react';
@@ -40,3 +48,4 @@ export default function Home() {
     </main>
   );
 }
+

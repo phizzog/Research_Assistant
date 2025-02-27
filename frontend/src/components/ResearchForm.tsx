@@ -35,6 +35,9 @@ ${projectDescription}
             id="projectTitle"
             value={projectTitle}
             onChange={(e) => setProjectTitle(e.target.value)}
+
+            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
+
             className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-black"
             placeholder="e.g., Impact of Social Media on Student Mental Health"
             required
@@ -52,7 +55,7 @@ ${projectDescription}
             id="projectDescription"
             value={projectDescription}
             onChange={(e) => setProjectDescription(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[150px]"
+            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[150px] text-gray-800 font-medium placeholder:text-gray-400"
             placeholder="e.g., This research aims to understand how social media usage affects students' mental well-being. I want to explore both the positive and negative impacts, and gather data through..."
             required
           />

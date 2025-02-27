@@ -1,36 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Research Assistant - Frontend
 
-## Getting Started
+A modern, responsive web application built with Next.js that serves as the user interface for the Research Assistant project. This application allows users to interact with AI models for research assistance.
 
-First, run the development server:
+## 🚀 Features
+
+- **AI-Powered Research Assistance**: Leverage Google's Gemini AI model to assist with research tasks
+- **Responsive Design**: Built with modern UI principles for seamless experience across devices
+- **Markdown Support**: Rich text formatting with syntax highlighting for code snippets
+- **Firebase Integration**: Authentication and data storage with Firebase
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 15](https://nextjs.org/)
+- **UI Library**: [React 19](https://react.dev/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **AI**: [Google Gemini AI](https://deepmind.google/technologies/gemini/)
+- **Backend Services**: [Firebase](https://firebase.google.com/)
+- **Rendering**: Server-side and client-side rendering capabilities
+- **Development**: TypeScript, ESLint, Turbopack
+
+## 📋 Prerequisites
+
+- Node.js 18.x or later
+- npm or yarn
+- Google Gemini API key
+- Firebase project with appropriate configurations
+
+## 🔧 Installation
+
+1. **Clone the repository**
+
+```bash
+git clone <repository-url>
+cd frontend
+```
+
+2. **Install dependencies**
+
+```bash
+npm install
+# or
+yarn install
+```
+
+3. **Environment Setup**
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```
+NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key
+```
+
+Additionally, you'll need the Firebase admin SDK configuration file.
+
+## 🚀 Development
+
+Run the development server with Turbopack:
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+frontend/
+├── public/           # Static assets
+├── src/
+│   ├── app/          # Next.js app router pages and layouts
+│   ├── components/   # Reusable UI components
+│   └── lib/          # Utility functions, hooks, and services
+├── .env.local        # Environment variables (not in repo)
+├── next.config.ts    # Next.js configuration
+├── tailwind.config.ts # Tailwind CSS configuration
+└── tsconfig.json     # TypeScript configuration
+```
 
-## Learn More
+## 🏗️ Building for Production
 
-To learn more about Next.js, take a look at the following resources:
+Build the application for production:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+# or
+yarn build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Start the production server:
 
-## Deploy on Vercel
+```bash
+npm run start
+# or
+yarn start
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🧪 Linting
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run linting checks:
+
+```bash
+npm run lint
+# or
+yarn lint
+```
+
+## 🚢 Deployment
+
+The recommended deployment platform is [Vercel](https://vercel.com/), which is optimized for Next.js applications. Simply connect your repository to Vercel for automatic deployments.
+
+Alternative deployment options include:
+- Firebase Hosting
+- Netlify
+- AWS Amplify
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE)
+
+## 📞 Contact
+
+Project Link: [https://github.com/yourusername/research-assistant](https://github.com/yourusername/research-assistant)
