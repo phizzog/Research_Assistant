@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import supabase from '@/lib/supabase';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -15,7 +14,13 @@ export default function SignInPage() {
     e.preventDefault();
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
       // On successful sign in, redirect to the research page
       router.push('/research');
     } catch (err: any) {

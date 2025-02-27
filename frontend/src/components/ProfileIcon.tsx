@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import supabase from '@/lib/supabase';
 
 export default function ProfileIcon() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,10 +23,16 @@ export default function ProfileIcon() {
     };
   }, []);
 
-  const handleSignOut = () => {
-    // Here you would typically clear auth tokens, cookies, etc.
-    // For now, we'll just redirect to the signup page
-    router.push('/signup');
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Redirect to the signup page after signing out
+      router.push('/signup');
+    } catch (err) {
+      console.error('Error signing out:', err);
+    }
   };
 
   return (
