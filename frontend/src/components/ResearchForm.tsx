@@ -35,7 +35,6 @@ ${projectDescription}
             id="projectTitle"
             value={projectTitle}
             onChange={(e) => setProjectTitle(e.target.value)}
-
             className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
             placeholder="e.g., Impact of Social Media on Student Mental Health"
             required
