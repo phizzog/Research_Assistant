@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_TOKENS_PER_CHUNK = 700  # Target chunk size in tokens
-INPUT_FILE = r"C:\Users\kenny\OneDrive\code\Research-Assistant\Data_Curator\input\test.json"
-OUTPUT_FILE = r"C:\Users\kenny\OneDrive\code\Research-Assistant\Data_Curator\output\chunked_examplename2.json"
+INPUT_FILE = r"/Users/ksnyder/Research-Assistant/Data_Curator/input/test.json"
+OUTPUT_FILE = r"/Users/ksnyder/Research-Assistant/Data_Curator/output/chunked_test.json"
 
 # Regex patterns for identifying chapter and section headers
 CHAPTER_PATTERN = re.compile(r'^CHAPTER \d+ .+$', re.MULTILINE)

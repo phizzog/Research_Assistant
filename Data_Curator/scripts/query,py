@@ -1,0 +1,43 @@
+import requests
+from supabase import create_client
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
+# Function to generate embedding
+def get_embedding(text: str) -> list:
+    response = requests.post(
+        "http://localhost:11434/api/embeddings",
+        json={"model": "nomic-embed-text:latest", "prompt": text}
+    )
+    return response.json()["embedding"]
+
+# Test query
+query = "What are mixed methods approaches in research?"
+query_embedding = get_embedding(query)
+print(f"Query embedding length: {len(query_embedding)}")
+
+# Perform vector search
+try:
+    # Note: Direct vector operations in .select() aren't fully supported, so use RPC or raw SQL
+    response = supabase.rpc("vector_search", {
+        "query_embedding": query_embedding,
+        "match_count": 5
+    }).execute()
+except Exception as e:
+    print(f"RPC error: {e}")
+    # Fallback to raw SQL if RPC function isn’t set up
+    response = supabase.table("chunks").select("chunk_id, raw_text, contextualized_text, metadata").order(
+        "(embedding <=> :embedding)", desc=False, params={"embedding": query_embedding}
+    ).limit(5).execute()
+
+# Print results
+for row in response.data:
+    print(f"Chunk ID: {row['chunk_id']}")
+    print(f"Raw Text: {row['raw_text'][:100]}...")
+    print(f"Contextualized Text: {row['contextualized_text'][:100]}...")
+    print(f"Book Title: {row['metadata']['book_title']}")
+    print("---")
