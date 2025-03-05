@@ -9,9 +9,12 @@ export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setInfo('');
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -25,6 +28,27 @@ export default function SignInPage() {
       router.push('/research');
     } catch (err: any) {
       setError(err.message || 'Error signing in');
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError('');
+    setInfo('');
+
+    if (!email) {
+      setError('Please enter your email first.');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        // Adjust the redirect URL as needed
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setInfo('Password reset email sent. Please check your inbox.');
+    } catch (err: any) {
+      setError(err.message || 'Error sending password reset email.');
     }
   };
 
@@ -57,7 +81,17 @@ export default function SignInPage() {
               required
             />
           </div>
+          <div className="mb-4 text-right">
+            <button 
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-sm text-indigo-600 hover:text-indigo-800"
+            >
+              Forgot password?
+            </button>
+          </div>
           {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+          {info && <p className="text-green-500 text-sm mb-2">{info}</p>}
           <button 
             type="submit" 
             className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"

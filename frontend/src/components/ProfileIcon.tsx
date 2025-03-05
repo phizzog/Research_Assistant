@@ -28,8 +28,8 @@ export default function ProfileIcon() {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      // Redirect to the signup page after signing out
-      router.push('/signup');
+      // Redirect to the sign in page after signing out
+      router.push('/signin');
     } catch (err) {
       console.error('Error signing out:', err);
     }
@@ -69,4 +69,4 @@ export default function ProfileIcon() {
       )}
     </div>
   );
-} 
+}
