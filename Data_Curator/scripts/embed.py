@@ -1,5 +1,4 @@
 import json
-import requests
 import logging
 import time
 import datetime
@@ -7,6 +6,7 @@ import os
 from typing import Dict, List
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
 
 # Load environment variables
 load_dotenv()
@@ -35,12 +35,10 @@ perf_logger.setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info(f"Starting embedding and upload run. Logs will be written to {log_filename}")
 
-# Ollama configuration
-OLLAMA_BASE_URL = 'http://localhost:11434'
-OLLAMA_EMBED_ENDPOINT = f"{OLLAMA_BASE_URL}/api/embeddings"
-OLLAMA_EMBED_MODEL = "nomic-embed-text:latest"
-
-logger.info(f"Using Ollama embedding model: {OLLAMA_EMBED_MODEL} on local instance")
+# Embedding model configuration (matches RAG script)
+EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1"
+embedder = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
+logger.info(f"Using embedding model: {EMBEDDING_MODEL}")
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -54,12 +52,8 @@ else:
     logger.error("Supabase connection not configured - SUPABASE_URL and SUPABASE_KEY required")
     raise ValueError("Supabase credentials missing in .env")
 
-# Retry configuration
-MAX_RETRIES = 3
-COOLDOWN = 2  # seconds
-
 # Load enriched JSON
-input_file = "enriched_chunks.json"
+input_file = "updated_enriched_chunks.json"
 logger.info(f"Loading enriched JSON from {input_file}")
 try:
     with open(input_file, "r") as f:
@@ -71,48 +65,19 @@ except Exception as e:
 
 def get_embeddings(text: str) -> List[float]:
     """
-    Generate embeddings for the given text using nomic-embed-text:latest via Ollama.
+    Generate embeddings for the given text using SentenceTransformer.
     """
     logger.debug(f"Generating embedding for text: {text[:50]}...")
     start_time = time.time()
-
-    payload = {
-        "model": OLLAMA_EMBED_MODEL,
-        "prompt": text
-    }
-
-    for attempt in range(MAX_RETRIES):
-        try:
-            if attempt > 0:
-                time.sleep(COOLDOWN)
-                perf_logger.info(f"Retry attempt {attempt + 1} after {COOLDOWN:.2f}s cooldown")
-
-            response = requests.post(
-                OLLAMA_EMBED_ENDPOINT,
-                json=payload,
-                timeout=30
-            )
-            response.raise_for_status()
-            embedding = response.json().get("embedding", [])
-            
-            if not embedding:
-                raise ValueError("No embedding returned from Ollama")
-
-            end_time = time.time()
-            duration = end_time - start_time
-            perf_logger.info(f"Embedding generated in {duration:.2f}s. Model: {OLLAMA_EMBED_MODEL}")
-            logger.debug(f"Embedding length: {len(embedding)}")
-            return embedding
-
-        except Exception as e:
-            end_time = time.time()
-            duration = end_time - start_time
-            perf_logger.error(f"Embedding request failed in {duration:.2f}s on attempt {attempt + 1}: {str(e)}")
-            if attempt == MAX_RETRIES - 1:
-                logger.error("All retries failed for embedding", exc_info=True)
-                return []
-
-    return []
+    try:
+        embedding = embedder.encode(text, show_progress_bar=False).tolist()
+        duration = time.time() - start_time
+        perf_logger.info(f"Embedding generated in {duration:.2f}s. Model: {EMBEDDING_MODEL}")
+        logger.debug(f"Embedding length: {len(embedding)}")
+        return embedding
+    except Exception as e:
+        logger.error(f"Failed to generate embedding: {e}")
+        return []
 
 def clear_existing_data(book_title: str):
     """
@@ -131,7 +96,7 @@ def process_and_upload_chunks(
     output_file: str = "embedded_chunks.json"
 ):
     """
-    Process each chunk to generate embeddings and upload to Supabase with raw_text.
+    Process each chunk to generate embeddings for contextualized_text and upload to Supabase.
     """
     # Clear existing data for this book
     clear_existing_data(book_title)
@@ -149,7 +114,7 @@ def process_and_upload_chunks(
         embedding = get_embeddings(contextualized_text)
         
         if not embedding:
-            logger.warning(f"Failed to generate embedding for chunk {chunk['chunk_id']}")
+            logger.warning(f"Failed to generate embedding for chunk {chunk['chunk_id']}, skipping upload")
             continue
             
         chunk_with_embedding = chunk.copy()
@@ -160,16 +125,16 @@ def process_and_upload_chunks(
         try:
             chunk_data = {
                 "chunk_id": chunk["chunk_id"],
-                "raw_text": chunk["raw_text"],              # Added
+                "raw_text": chunk["raw_text"],
                 "contextualized_text": chunk["contextualized_text"],
                 "metadata": {
                     "source_id": source_id,
                     "book_title": book_title,
-                    "page_num": chunk["metadata"].get("page_num", 0),
+                    "page_num": chunk["metadata"].get("page_num", 0),  # From chunking script if available
                     "chunk_num": i + 1,
                     "total_chunks": total_chunks,
                     "section": chunk["metadata"].get("section", ""),
-                    "subsection": chunk["metadata"].get("subsection", ""),
+                    "subsection": chunk["metadata"].get("subsection", ""),  # Adjust if not present
                     "topics": chunk["metadata"].get("topics", [])
                 },
                 "embedding": embedding

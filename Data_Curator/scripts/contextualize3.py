@@ -238,38 +238,43 @@ def contextualize_chunk(chunk: Dict, context: str) -> str:
     logger.info(f"Contextualizing chunk: {raw_text[:50]}...")
 
     prompt = f"""
-You are tasked with analyzing and enriching a text chunk using provided context. Your goal is to create a more informative version of the original text by integrating relevant information from the context while maintaining the original meaning. In your enriched version, explicitly state whether this chunk pertains to qualitative, quantitative, or mixed methods research—or general research design principles if it does not specifically fit into one of those categories—based on its content and the provided context.
+You are tasked with enriching a text chunk using the provided context. Your goal is to integrate relevant information from the context to make the chunk more informative while preserving its original meaning. Additionally, you must identify and state the type of research the chunk pertains to: qualitative, quantitative, mixed methods, or general research design principles.
 
-First, review the following context carefully. This information will help you understand the broader topic and enrich the text chunk:
+### Instructions:
+1. Read the provided context carefully to understand the broader topic.
+2. Analyze the raw text and identify key concepts that could benefit from additional context.
+3. Use the context to enrich the raw text by adding relevant information, clarifying concepts, or providing background.
+4. Ensure the original meaning and intent of the raw text are preserved.
+5. Determine the type of research the chunk relates to (qualitative, quantitative, mixed methods, or general research design principles) based on its content and the context.
+6. Include a statement in the enriched text specifying the research type.
 
-<context>
-{context}
-</context>
-
-Now, you will be given a chunk of text to analyze and enrich. Here are the details:
-
-<chunk_id>{chunk_id}</chunk_id>
-
-<raw_text>
-{raw_text}
-</raw_text>
-
-To create the contextualized chunk:
-1. Carefully read the raw text and understand its main points.
-2. Identify key concepts, terms, or ideas in the raw text that could benefit from additional context.
-3. Refer back to the provided context and find relevant information that can enhance the understanding of the raw_text.
-4. Integrate this contextual information into the raw_text, expanding on important points, clarifying concepts, or providing background information as needed.
-5. Ensure that the original meaning and intent of the raw_text are preserved while adding depth and clarity.
-6. In the enriched text, include a statement specifying the type of research (qualitative, quantitative, mixed methods, or general research design principles) this chunk relates to, inferred from its content and context.
-7. Focus on providing a broad enhancement relevant to research design principles, tailored to the inferred research type.
-
-Your output should be formatted exactly as follows:
-
-<chunk_id>{chunk_id}</chunk_id>
-<raw_text>{raw_text}</raw_text>
+### Output Format:
 <contextualized_chunk>
-[Place your enriched version here. Integrate relevant context to enhance understanding while maintaining the original meaning, and state the type of research involved.]
+[Your enriched version of the text, including the research type statement.]
 </contextualized_chunk>
+
+### Example:
+**Context:**  
+"Qualitative research focuses on understanding human behavior through non-numerical data."
+
+**Raw Text:**  
+"Interviews are a common method."
+
+**Output:**  
+<contextualized_chunk>  
+Interviews are a common method in qualitative research, as they allow researchers to gather in-depth, non-numerical data to understand human behavior. This chunk pertains to qualitative research.  
+</contextualized_chunk>
+
+Now, proceed to enrich the following chunk using the provided context:
+
+### Context:
+{context}
+
+### Raw Text:
+{raw_text}
+
+### Chunk ID:
+{chunk_id}
 """
     # Try using the OpenAI client first
     try:

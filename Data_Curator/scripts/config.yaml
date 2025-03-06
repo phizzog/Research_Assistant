@@ -1,0 +1,15 @@
+ollama:
+  endpoints:
+    - "http://192.168.10.3:11436"  # GPU 1
+    - "http://192.168.10.3:11435"  # GPU 2
+
+  model: "llama3.1:8b"
+retries:
+  max_retries: 3
+  cooldown: 2
+processing:
+  batch_size: 10
+embedding:
+  model: "nomic-ai/nomic-embed-text-v1"
+input_file: "C:/Users/kenny/OneDrive/code/Research-Assistant/Data_Curator/output/chunked_test2.json"
+output_file: "enriched_chunks.json"

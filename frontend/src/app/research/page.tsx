@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Chat from '@/components/Chat';
 import ResearchForm from '@/components/ResearchForm';
 import ResearchQuestionsForm from '@/components/ResearchQuestionsForm';
 import ProfileIcon from '@/components/ProfileIcon';
-import { ChatHistory, ChatMessage, initializeGemini } from '@/lib/gemini';
+import { ChatHistory, ChatMessage } from '@/lib/gemini';
+import { queryBackend, sendChatMessage, uploadFile, checkBackendHealth } from '@/lib/api';
 
 export default function HomePage() {
   const [messages, setMessages] = useState<ChatHistory>([]);
@@ -14,6 +15,19 @@ export default function HomePage() {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [projectDetails, setProjectDetails] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+  const [backendHealthy, setBackendHealthy] = useState(true);
+
+  // Check backend health on component mount
+  useEffect(() => {
+    const checkHealth = async () => {
+      const isHealthy = await checkBackendHealth();
+      setBackendHealthy(isHealthy);
+      if (!isHealthy) {
+        console.error('Backend is not healthy. Some features may not work.');
+      }
+    };
+    checkHealth();
+  }, []);
 
   const handleResearchSubmit = async (details: string) => {
     setProjectDetails(details);
@@ -23,8 +37,6 @@ export default function HomePage() {
   const handleQuestionnaireComplete = async (responses: Array<{ question: string, answer: string }>) => {
     setAnalyzing(true);
     try {
-      const model = initializeGemini(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
-      
       // Format the questionnaire responses
       const formattedResponses = responses.map(r => 
         `Question: ${r.question}\nAnswer: ${r.answer}`
@@ -45,16 +57,15 @@ Questionnaire Responses:
 ${formattedResponses}
       `.trim();
 
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      // Use the backend API instead of direct Gemini call
+      const response = await queryBackend(prompt);
 
       setMessages([
         {
           role: 'assistant',
           content:
             "Welcome! I've analyzed your research project and questionnaire responses. Here's my assessment:\n\n" +
-            text +
+            response +
             "\n\nWhat questions do you have about the suggested methodology?"
         }
       ]);
@@ -74,6 +85,15 @@ ${formattedResponses}
   };
 
   const handleSendMessage = async (message: string, file?: File) => {
+    if (!backendHealthy) {
+      setMessages([
+        ...messages,
+        { role: 'user', content: message },
+        { role: 'assistant', content: "Sorry, the backend service is currently unavailable. Please try again later." }
+      ]);
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Add the user message to the chat
@@ -81,24 +101,14 @@ ${formattedResponses}
       const newMessages = [...messages, userMessage];
       setMessages(newMessages);
 
-      const model = initializeGemini(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
       let text = '';
 
       if (file) {
-        // Handle file upload
-        const formData = new FormData();
-        formData.append('file', file);
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        const result = await response.json();
-        text = result.text;
+        // Handle file upload using the backend API
+        text = await uploadFile(file);
       } else {
-        // Get response from Gemini
-        const result = await model.generateContent(message);
-        const response = result.response;
-        text = response.text();
+        // Use the chat endpoint with history
+        text = await sendChatMessage(message, messages);
       }
 
       // Add the assistant's response to the chat
@@ -126,6 +136,11 @@ ${formattedResponses}
           <div className="text-center">
             <h1 className="text-3xl font-bold text-indigo-900 mb-2">Research Assistant</h1>
             <p className="text-indigo-600 text-lg font-medium">Your AI-powered research companion</p>
+            {!backendHealthy && (
+              <p className="text-red-500 text-sm mt-2">
+                Warning: Backend service is unavailable. Some features may not work.
+              </p>
+            )}
           </div>
         </header>
         
