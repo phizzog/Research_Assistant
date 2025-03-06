@@ -4,8 +4,19 @@ This is the backend for the Research Assistant application, which provides RAG (
 
 ## Setup
 
+### Option 1: Using pip
+
 1. Install dependencies:
    ```bash
+   pip install -r requirements.txt
+   ```
+
+### Option 2: Using conda (recommended)
+
+1. Create a new conda environment:
+   ```bash
+   conda create -n research_env python=3.11 -y
+   conda activate research_env
    pip install -r requirements.txt
    ```
 
@@ -43,6 +54,26 @@ This is the backend for the Research Assistant application, which provides RAG (
        LIMIT match_count;
    END;
    $$ LANGUAGE plpgsql;
+   ```
+
+## Troubleshooting
+
+If you encounter issues with the embedding model:
+
+1. Make sure `einops` is installed:
+   ```bash
+   pip install einops
+   ```
+
+2. If you're using the `nomic-ai/nomic-embed-text-v1` model and encounter errors, try using a simpler model by modifying `main.py`:
+   ```python
+   # Change from
+   EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1"
+   embedder = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
+   
+   # To
+   EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+   embedder = SentenceTransformer(EMBEDDING_MODEL)
    ```
 
 ## Running the Backend

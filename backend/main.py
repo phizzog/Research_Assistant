@@ -37,6 +37,10 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1"
 embedder = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
 
+# Alternative option (uncomment if the above doesn't work):
+# EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # A simpler model that doesn't require trust_remote_code
+# embedder = SentenceTransformer(EMBEDDING_MODEL)
+
 # Google Gemini setup
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
