@@ -1,14 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ResearchFormProps {
   onSubmit: (projectDetails: string) => void;
+  initialValue?: string;
 }
 
-export default function ResearchForm({ onSubmit }: ResearchFormProps) {
+export default function ResearchForm({ onSubmit, initialValue = '' }: ResearchFormProps) {
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
+
+  // Parse initialValue if provided
+  useEffect(() => {
+    if (initialValue) {
+      // Try to extract project title and description from initialValue
+      const titleMatch = initialValue.match(/Project Title: (.*?)(?:\n\n|$)/);
+      const descriptionMatch = initialValue.match(/Research Description:\n([\s\S]*?)$/);
+      
+      if (titleMatch && titleMatch[1]) {
+        setProjectTitle(titleMatch[1].trim());
+      }
+      
+      if (descriptionMatch && descriptionMatch[1]) {
+        setProjectDescription(descriptionMatch[1].trim());
+      } else {
+        // If no structured format, just use the whole text as description
+        setProjectDescription(initialValue);
+      }
+    }
+  }, [initialValue]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

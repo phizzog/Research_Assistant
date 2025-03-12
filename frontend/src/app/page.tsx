@@ -2,48 +2,24 @@
 
 'use client';
 
-import { redirect } from 'next/navigation';
-import { useState } from 'react';
-import ResearchForm from '@/components/ResearchForm';
-import ResearchQuestionsForm from '@/components/ResearchQuestionsForm';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-interface Response {
-  question: string;
-  answer: string;
-}
+export default function IndexPage() {
+  const router = useRouter();
 
-export default function Home() {
-  // Check if user is authenticated - if not, redirect to signin
-  // You might want to add your authentication check logic here
-  redirect('/signin');
-
-  const [step, setStep] = useState(1);
-  const [projectDetails, setProjectDetails] = useState({ title: '', description: '' });
-
-  const handleProjectSubmit = (details: string) => {
-    const [title, description] = details.split('\n\nResearch Description:\n');
-    setProjectDetails({ title: title.replace('Project Title: ', ''), description });
-    setStep(2);
-  };
-
-  const handleQuestionsComplete = (responses: Response[]) => {
-    const fullData = {
-      "research title": projectDetails.title,
-      "research description": projectDetails.description,
-      ...responses.reduce((acc, resp, index) => {
-        acc[`question ${index + 1}`] = resp.question;
-        acc[`answer ${index + 1}`] = resp.answer;
-        return acc;
-      }, {} as Record<string, string>),
-    };
-    console.log('Full research data:', fullData);
-  };
+  useEffect(() => {
+    // Redirect to dashboard on load
+    router.replace('/dashboard');
+  }, [router]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-50">
-      {step === 1 && <ResearchForm onSubmit={handleProjectSubmit} />}
-      {step === 2 && <ResearchQuestionsForm onComplete={handleQuestionsComplete} />}
-    </main>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 to-white">
+      <div className="animate-pulse flex flex-col items-center">
+        <div className="h-12 w-12 mb-4 rounded-full bg-indigo-200"></div>
+        <h2 className="text-xl font-semibold text-indigo-900 mb-2">Redirecting to Dashboard...</h2>
+      </div>
+    </div>
   );
 }
 

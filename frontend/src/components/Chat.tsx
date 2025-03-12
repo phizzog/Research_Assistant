@@ -63,24 +63,54 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
               {message.role === 'user' ? (
                 <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
               ) : (
-                <div className="markdown-content text-[15px] leading-relaxed">
+                <div className="markdown-content text-[15px] leading-relaxed text-black">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeRaw, rehypeHighlight]}
                     components={{
+                      // Style headings
+                      h1: ({ node, ...props }: ComponentProps) => (
+                        <h1 className="text-black text-xl font-bold mt-4 mb-2" {...props} />
+                      ),
+                      h2: ({ node, ...props }: ComponentProps) => (
+                        <h2 className="text-black text-lg font-bold mt-3 mb-2" {...props} />
+                      ),
+                      h3: ({ node, ...props }: ComponentProps) => (
+                        <h3 className="text-black text-base font-bold mt-2 mb-1" {...props} />
+                      ),
+                      p: ({ node, ...props }: ComponentProps) => (
+                        <p className="text-black mb-2" {...props} />
+                      ),
+                      // Style lists
+                      ul: ({ node, ...props }: ComponentProps) => (
+                        <ul className="text-black list-disc pl-5 mb-2" {...props} />
+                      ),
+                      ol: ({ node, ...props }: ComponentProps) => (
+                        <ol className="text-black list-decimal pl-5 mb-2" {...props} />
+                      ),
+                      li: ({ node, ...props }: ComponentProps) => (
+                        <li className="text-black mb-1" {...props} />
+                      ),
+                      // Style emphasis
+                      strong: ({ node, ...props }: ComponentProps) => (
+                        <strong className="text-black font-bold" {...props} />
+                      ),
+                      em: ({ node, ...props }: ComponentProps) => (
+                        <em className="text-black italic" {...props} />
+                      ),
                       // Style code blocks
                       code({ node, inline, className, children, ...props }: ComponentProps) {
                         const match = /language-(\w+)/.exec(className || '');
                         return !inline && match ? (
                           <div className="my-2 overflow-x-auto">
-                            <pre className="p-2 rounded bg-gray-100 text-gray-800 overflow-x-auto">
+                            <pre className="p-2 rounded bg-gray-100 text-black overflow-x-auto">
                               <code className={className} {...props}>
                                 {children}
                               </code>
                             </pre>
                           </div>
                         ) : (
-                          <code className="bg-gray-100 text-gray-800 px-1 rounded" {...props}>
+                          <code className="bg-gray-100 text-black px-1 rounded" {...props}>
                             {children}
                           </code>
                         );
@@ -88,7 +118,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
                       // Style links
                       a: ({ node, ...props }: ComponentProps) => (
                         <a 
-                          className="text-indigo-600 hover:underline" 
+                          className="text-black font-medium hover:underline" 
                           target="_blank" 
                           rel="noopener noreferrer" 
                           {...props}
@@ -97,7 +127,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
                       // Style tables
                       table: ({ node, ...props }: ComponentProps) => (
                         <div className="overflow-x-auto my-4">
-                          <table className="min-w-full border border-gray-300" {...props} />
+                          <table className="min-w-full border border-gray-300 text-black" {...props} />
                         </div>
                       ),
                       thead: ({ node, ...props }: ComponentProps) => (

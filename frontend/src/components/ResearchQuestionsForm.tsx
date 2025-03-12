@@ -15,11 +15,12 @@ interface Response {
 
 interface ResearchQuestionsFormProps {
   onComplete: (responses: Response[]) => void;
+  projectName?: string;
 }
 
 const questions: Question[] = [ /* Paste the questions array from Step 2 here */ 
     {
-        prompt: "Before selecting a research approach, it’s helpful to know the differences. Based on your initial thoughts, which type of data do you anticipate working with the most?",
+        prompt: "Before selecting a research approach, it's helpful to know the differences. Based on your initial thoughts, which type of data do you anticipate working with the most?",
         options: [
           { label: "A", text: "Numbers, measurements, and statistics (Quantitative Research)" },
           { label: "B", text: "Words, themes, and personal experiences (Qualitative Research)" },
@@ -39,12 +40,12 @@ const questions: Question[] = [ /* Paste the questions array from Step 2 here */
         prompt: "Your research design should align with your research goals. Let's determine the best fit for your study. Based on your research topic, which of these best describes your approach?",
         options: [
           { label: "A", text: "I want to test a hypothesis and analyze numerical data. (Quantitative Design)" },
-          { label: "B", text: "I want to explore people’s experiences through interviews. (Qualitative Design)" },
+          { label: "B", text: "I want to explore people's experiences through interviews. (Qualitative Design)" },
           { label: "C", text: "I want to combine surveys with interviews for a deeper analysis. (Mixed Methods Design)" },
         ],
       },
       {
-        prompt: "Different research questions require different methods. Let’s explore your options. Which best describes your data collection approach?",
+        prompt: "Different research questions require different methods. Let's explore your options. Which best describes your data collection approach?",
         options: [
           { label: "A", text: "Surveys and structured experiments. (Quantitative Methods)" },
           { label: "B", text: "Interviews, observations, and narratives. (Qualitative Methods)" },
@@ -60,7 +61,7 @@ const questions: Question[] = [ /* Paste the questions array from Step 2 here */
         ],
       },
       {
-        prompt: "Analyzing data correctly is crucial for accurate findings. Let’s identify the best approach for your study. How do you plan to analyze your data?",
+        prompt: "Analyzing data correctly is crucial for accurate findings. Let's identify the best approach for your study. How do you plan to analyze your data?",
         options: [
           { label: "A", text: "Using statistical tests like regression and t-tests. (Quantitative Analysis)" },
           { label: "B", text: "Identifying themes and coding responses. (Qualitative Analysis)" },
@@ -68,7 +69,7 @@ const questions: Question[] = [ /* Paste the questions array from Step 2 here */
         ],
       },
       {
-        prompt: "Your philosophical worldview shapes how you think about research. Let’s check your alignment:",
+        prompt: "Your philosophical worldview shapes how you think about research. Let's check your alignment:",
         options: [
           { label: "A", text: "I believe in objective truth and measurable data. (Postpositivist)" },
           { label: "B", text: "I believe knowledge is socially constructed. (Constructivist)" },
@@ -110,7 +111,7 @@ const questions: Question[] = [ /* Paste the questions array from Step 2 here */
       },
 ];
 
-export default function ResearchQuestionsForm({ onComplete }: ResearchQuestionsFormProps) {
+export default function ResearchQuestionsForm({ onComplete, projectName = 'your project' }: ResearchQuestionsFormProps) {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [responses, setResponses] = useState<Response[]>([]);
   
@@ -132,6 +133,17 @@ export default function ResearchQuestionsForm({ onComplete }: ResearchQuestionsF
   
     return (
       <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        {currentQuestionIndex === 0 && (
+          <div className="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+            <h3 className="text-lg font-semibold text-indigo-900 mb-2">
+              Determine Research Type for "{projectName}"
+            </h3>
+            <p className="text-gray-700">
+              Please answer the following questions to help us determine the most appropriate research methodology for your project.
+            </p>
+          </div>
+        )}
+        
         <h2 className="text-2xl font-semibold text-indigo-900 mb-6">
           {currentQuestion.prompt}
         </h2>

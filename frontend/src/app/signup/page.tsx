@@ -3,19 +3,28 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabase';
+import Link from 'next/link';
 
 export default function SignUpPage() {
   const router = useRouter();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    setIsLoading(true);
 
+    // Validate passwords match
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError('Passwords do not match');
+      setIsLoading(false);
       return;
     }
 
@@ -27,10 +36,17 @@ export default function SignUpPage() {
 
       if (error) throw error;
       
-      // Redirect to sign in page after successful account creation
-      router.push('/signin');
+      // Show success message
+      setSuccessMessage('Registration successful! Please check your email to confirm your account.');
+      
+      // Redirect to sign in after a delay
+      setTimeout(() => {
+        router.replace('/signin');
+      }, 3000);
     } catch (err: any) {
-      setError(err.message || 'Error creating account');
+      console.error('Sign up error:', err);
+      setError(err.message || 'Failed to sign up');
+      setIsLoading(false);
     }
   };
 
@@ -43,56 +59,82 @@ export default function SignUpPage() {
       </header>
 
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-indigo-900 mb-4">Create an Account</h2>
-        <form onSubmit={handleSubmit}>
+        <h2 className="text-2xl font-bold text-indigo-900 mb-6">Create Account</h2>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+            {error}
+          </div>
+        )}
+        
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">
+            {successMessage}
+          </div>
+        )}
+        
+        <form onSubmit={handleSignUp}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email Address
+            </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
+              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Enter your email"
               required
             />
           </div>
+          
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Password
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
+              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Create a password"
               required
+              minLength={6}
             />
           </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+          
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Confirm Password
+            </label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800 font-medium placeholder:text-gray-400"
+              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Confirm your password"
               required
+              minLength={6}
             />
           </div>
-          {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-          <button 
-            type="submit" 
-            className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+          
+          <button
+            type="submit"
+            className="w-full py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+            disabled={isLoading}
           >
-            Sign Up
+            {isLoading ? 'Creating Account...' : 'Sign Up'}
           </button>
-          <p className="mt-4 text-center text-sm text-gray-600">
-            Already have an account?{' '}
-            <button 
-              type="button" 
-              onClick={() => router.push('/signin')} 
-              className="text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              Sign In
-            </button>
-          </p>
         </form>
+        
+        <div className="mt-6 text-center">
+          <p className="text-gray-600">
+            Already have an account?{' '}
+            <Link href="/signin" className="text-indigo-600 hover:text-indigo-800">
+              Sign In
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

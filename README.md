@@ -5,7 +5,14 @@ An AI-powered research assistant that helps users with research methodology, usi
 ## Project Structure
 
 - `frontend/`: Next.js frontend application
-- `backend/`: FastAPI backend application
+- `backend/`: FastAPI backend application with modular architecture
+  - `app/`: Main application package
+    - `api/`: API routes and endpoints
+    - `core/`: Core functionality (config, database, AI)
+    - `models/`: Data models and schemas
+    - `services/`: Business logic and services
+    - `utils/`: Utility functions
+  - `main.py`: Application entry point
 - `Data_Curator/`: Tools for processing and uploading research data
 
 ## Setup
@@ -35,11 +42,11 @@ An AI-powered research assistant that helps users with research methodology, usi
    GEMINI_API_KEY=your-gemini-api-key
    ```
 
-5. Make sure your Supabase database has the required schema and functions as described in the backend README.
+5. Make sure your Supabase database has the required schema and functions as described in the Supabase Setup section.
 
 6. Start the backend server:
    ```bash
-   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+   python -m main
    ```
 
 ### Frontend Setup
@@ -108,6 +115,18 @@ An AI-powered research assistant that helps users with research methodology, usi
    END;
    $$ LANGUAGE plpgsql;
    ```
+
+## Backend Architecture
+
+The backend follows a modular architecture for better maintainability and separation of concerns:
+
+- **API Layer** (`app/api/`): Handles HTTP requests and responses
+- **Core Layer** (`app/core/`): Contains core functionality like configuration, database connections, and AI services
+- **Models Layer** (`app/models/`): Defines data models and schemas using Pydantic
+- **Services Layer** (`app/services/`): Implements business logic and services
+- **Utils Layer** (`app/utils/`): Contains utility functions and helpers
+
+This modular structure makes the codebase easier to maintain, test, and extend with new features.
 
 ## Features
 

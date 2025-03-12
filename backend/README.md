@@ -1,106 +1,132 @@
 # Research Assistant Backend
 
-This is the backend for the Research Assistant application, which provides RAG (Retrieval-Augmented Generation) capabilities using Supabase for vector storage and Gemini for text generation.
+This is the backend API for the Research Assistant application, built with FastAPI and Python.
+
+## Architecture
+
+The backend follows a modular architecture for better maintainability and separation of concerns:
+
+- **API Layer** (`app/api/`): Handles HTTP requests and responses
+- **Core Layer** (`app/core/`): Contains core functionality like configuration, database connections, and AI services
+- **Models Layer** (`app/models/`): Defines data models and schemas using Pydantic
+- **Services Layer** (`app/services/`): Implements business logic and services
+- **Utils Layer** (`app/utils/`): Contains utility functions and helpers
 
 ## Setup
 
-### Option 1: Using pip
+1. Create a virtual environment and activate it:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-1. Install dependencies:
+2. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-### Option 2: Using conda (recommended)
-
-1. Create a new conda environment:
-   ```bash
-   conda create -n research_env python=3.11 -y
-   conda activate research_env
-   pip install -r requirements.txt
-   ```
-
-2. Create a `.env` file based on `.env.example` and fill in your credentials:
+3. Create a `.env` file based on `.env.example` and fill in your credentials:
    ```
    SUPABASE_URL=https://your-project-id.supabase.co
    SUPABASE_KEY=your-service-role-key
    GEMINI_API_KEY=your-gemini-api-key
    ```
 
-3. Make sure your Supabase database has the required schema:
-   - A `chunks` table with the following columns:
-     - `chunk_id` (TEXT, PRIMARY KEY): Unique identifier
-     - `raw_text` (TEXT): Original chunk text
-     - `contextualized_text` (TEXT): Enriched text with research type statement
-     - `metadata` (JSONB): Metadata (e.g., source_id, book_title, page_num, etc.)
-     - `embedding` (VECTOR(768)): 768D vector embedding of contextualized_text
-
-4. Ensure the `match_chunks` function is created in your Supabase database:
-   ```sql
-   CREATE OR REPLACE FUNCTION match_chunks(query_embedding VECTOR(768), match_count INT)
-   RETURNS TABLE (
-       chunk_id TEXT,
-       raw_text TEXT,
-       contextualized_text TEXT,
-       metadata JSONB,
-       similarity FLOAT
-   ) AS $$
-   BEGIN
-       RETURN QUERY
-       SELECT chunks.chunk_id, chunks.raw_text, chunks.contextualized_text, chunks.metadata,
-              1 - (chunks.embedding <=> query_embedding) AS similarity
-       FROM chunks
-       ORDER BY chunks.embedding <=> query_embedding
-       LIMIT match_count;
-   END;
-   $$ LANGUAGE plpgsql;
-   ```
-
-## Troubleshooting
-
-If you encounter issues with the embedding model:
-
-1. Make sure `einops` is installed:
+4. Start the backend server:
    ```bash
-   pip install einops
+   python -m main
    ```
 
-2. If you're using the `nomic-ai/nomic-embed-text-v1` model and encounter errors, try using a simpler model by modifying `main.py`:
-   ```python
-   # Change from
-   EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1"
-   embedder = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
-   
-   # To
-   EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-   embedder = SentenceTransformer(EMBEDDING_MODEL)
-   ```
+## Database Schema
 
-## Running the Backend
+The application uses Supabase as the database. Below is the schema:
 
-Start the FastAPI server:
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
+| table_name    | column_name         | data_type                   | character_maximum_length | is_nullable | column_default                     | constraint_type | referenced_table | referenced_column |
+| ------------- | ------------------- | --------------------------- | ------------------------ | ----------- | ---------------------------------- | --------------- | ---------------- | ----------------- |
+| chatmessages  | message_id          | integer                     | null                     | NO          | null                               | PRIMARY KEY     | chatmessages     | message_id        |
+| chatmessages  | message_text        | text                        | null                     | NO          | null                               |                 | null             | null              |
+| chatmessages  | project_id          | integer                     | null                     | NO          | null                               |                 | null             | null              |
+| chatmessages  | sender_type         | USER-DEFINED                | null                     | NO          | null                               |                 | null             | null              |
+| chatmessages  | sent_at             | timestamp without time zone | null                     | YES         | CURRENT_TIMESTAMP                  |                 | null             | null              |
+| chatmessages  | user_id             | uuid                        | null                     | NO          | null                               |                 | null             | null              |
+| choices       | choice_id           | integer                     | null                     | NO          | null                               | FOREIGN KEY     | choices          | choice_id         |
+| choices       | choice_id           | integer                     | null                     | NO          | null                               | PRIMARY KEY     | choices          | choice_id         |
+| choices       | choice_text         | text                        | null                     | NO          | null                               |                 | null             | null              |
+| choices       | description         | text                        | null                     | YES         | null                               |                 | null             | null              |
+| choices       | question_id         | integer                     | null                     | NO          | null                               |                 | null             | null              |
+| chunks        | chunk_id            | text                        | null                     | NO          | null                               |                 | null             | null              |
+| chunks        | contextualized_text | text                        | null                     | YES         | null                               |                 | null             | null              |
+| chunks        | embedding           | USER-DEFINED                | null                     | YES         | null                               |                 | null             | null              |
+| chunks        | id                  | integer                     | null                     | NO          | nextval('chunks_id_seq'::regclass) | PRIMARY KEY     | chunks           | id                |
+| chunks        | metadata            | jsonb                       | null                     | YES         | null                               |                 | null             | null              |
+| chunks        | raw_text            | text                        | null                     | YES         | null                               |                 | null             | null              |
+| pdfs          | file_name           | character varying           | 100                      | NO          | null                               |                 | null             | null              |
+| pdfs          | file_path           | character varying           | 255                      | NO          | null                               |                 | null             | null              |
+| pdfs          | file_size           | integer                     | null                     | YES         | null                               |                 | null             | null              |
+| pdfs          | pdf_id              | integer                     | null                     | NO          | null                               | PRIMARY KEY     | pdfs             | pdf_id            |
+| pdfs          | project_id          | integer                     | null                     | NO          | null                               |                 | null             | null              |
+| pdfs          | raw_text            | text                        | null                     | YES         | null                               |                 | null             | null              |
+| pdfs          | upload_date         | timestamp without time zone | null                     | YES         | CURRENT_TIMESTAMP                  |                 | null             | null              |
+| projects      | created_at          | timestamp without time zone | null                     | YES         | CURRENT_TIMESTAMP                  |                 | null             | null              |
+| projects      | description         | text                        | null                     | YES         | null                               |                 | null             | null              |
+| projects      | learning_objective  | text                        | null                     | YES         | null                               |                 | null             | null              |
+| projects      | project_id          | integer                     | null                     | NO          | null                               | FOREIGN KEY     | projects         | project_id        |
+| projects      | project_id          | integer                     | null                     | NO          | null                               | PRIMARY KEY     | projects         | project_id        |
+| projects      | project_id          | integer                     | null                     | NO          | null                               | FOREIGN KEY     | projects         | project_id        |
+| projects      | project_id          | integer                     | null                     | NO          | null                               | FOREIGN KEY     | projects         | project_id        |
+| projects      | project_name        | character varying           | 100                      | NO          | null                               |                 | null             | null              |
+| projects      | research_type       | USER-DEFINED                | null                     | YES         | null                               |                 | null             | null              |
+| projects      | user_id             | uuid                        | null                     | NO          | null                               |                 | null             | null              |
+| questions     | question_id         | integer                     | null                     | NO          | null                               | PRIMARY KEY     | questions        | question_id       |
+| questions     | question_id         | integer                     | null                     | NO          | null                               | FOREIGN KEY     | questions        | question_id       |
+| questions     | question_id         | integer                     | null                     | NO          | null                               | FOREIGN KEY     | questions        | question_id       |
+| questions     | question_text       | text                        | null                     | NO          | null                               |                 | null             | null              |
+| userresponses | choice_id           | integer                     | null                     | NO          | null                               |                 | null             | null              |
+| userresponses | project_id          | integer                     | null                     | NO          | null                               |                 | userresponses    | project_id        |
+| userresponses | question_id         | integer                     | null                     | NO          | null                               |                 | userresponses    | question_id       |
+| userresponses | response_id         | integer                     | null                     | NO          | null                               | PRIMARY KEY     | userresponses    | response_id       |
+| userresponses | user_id             | uuid                        | null                     | NO          | null                               |                 | null             | null              |
 
 ## API Endpoints
 
-- `POST /query`: Query the system with a text prompt
-- `POST /chat`: Send a message in a chat context
-- `POST /upload`: Upload a file for analysis
+- `POST /query`: Query the research assistant with a specific question
+- `POST /chat`: Chat with the research assistant, maintaining conversation history
+- `POST /upload`: Upload a PDF file for analysis and storage
 - `GET /health`: Health check endpoint
 
-## Example Usage
+## Development
+
+### Adding New Features
+
+1. Define new models in `app/models/schemas.py`
+2. Implement business logic in `app/services/`
+3. Add new API endpoints in `app/api/routes.py`
+4. Update configuration if needed in `app/core/config.py`
+
+### Error Handling
+
+The application uses a centralized error handling system:
+
+- `app/utils/error_handlers.py` contains exception handlers
+- Use the `AppException` class for application-specific exceptions
+
+### Logging
+
+Logging is configured in `app/core/config.py` and uses both the standard Python logging module and Loguru for enhanced logging capabilities.
+
+## Testing
+
+To run tests:
 
 ```bash
-# Query endpoint
-curl -X POST "http://localhost:8000/query" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What is mixed methods research?", "top_k": 5}'
+pytest
+```
 
-# Chat endpoint
-curl -X POST "http://localhost:8000/chat" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What is mixed methods research?", "chat_history": [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there! How can I help you with your research today?"}]}'
+## Deployment
+
+The application can be deployed using Docker:
+
+```bash
+docker build -t research-assistant-backend .
+docker run -p 8000:8000 research-assistant-backend
 ``` 
