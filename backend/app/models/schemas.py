@@ -40,4 +40,16 @@ class PDFDocument(BaseModel):
 class ParserOutput(BaseModel):
     """Model for complete parser output"""
     document: PDFDocument
-    pages: List[PDFPage] 
+    pages: List[PDFPage]
+
+# PDF Ingestion Models
+class PDFIngestionResponse(BaseModel):
+    """Model for PDF ingestion response"""
+    status: str  # "success" or "error"
+    message: str
+    document_id: Optional[str] = None
+    project_id: Optional[int] = None
+    chunks_created: int = 0
+    chunks_embedded: int = 0
+    sources: Optional[List[Dict[str, Any]]] = None
+    sources_updated: bool = False 

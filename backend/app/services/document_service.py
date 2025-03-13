@@ -3,6 +3,7 @@ from app.core.ai import generate_embeddings
 from app.models.schemas import ParserOutput
 from app.core.config import logger
 from typing import List
+import time
 
 async def store_pdf_content(pdf_data: ParserOutput) -> int:
     """
@@ -32,20 +33,31 @@ async def store_pdf_content(pdf_data: ParserOutput) -> int:
         # Create chunks (simple approach - split by paragraphs)
         chunks = [chunk for chunk in full_text.split("\n\n") if chunk.strip()]
         
+        # Create a source_id from the document filename with timestamp to ensure uniqueness
+        document_id = pdf_data.document.document_id
+        timestamp = int(time.time())
+        source_id = f"source_{document_id}_{timestamp}"
+        
         # Store each chunk with its embedding
         for i, chunk in enumerate(chunks):
             # Generate embedding
             embedding = generate_embeddings(chunk)
             
-            # Store in Supabase
-            supabase.table("chunks").insert({
-                "content": chunk,
+            # Create a unique chunk_id
+            chunk_id = f"{document_id}_{timestamp}_{i}"
+            
+            # Store in Supabase using the sources table
+            supabase.table("sources").upsert({
+                "source_id": source_id,
+                "chunk_id": chunk_id,
+                "raw_text": chunk,
                 "embedding": embedding,
                 "metadata": {
                     "source": pdf_data.document.filename,
-                    "chunk_index": i
+                    "chunk_index": i,
+                    "document_id": document_id
                 }
-            }).execute()
+            }, on_conflict="chunk_id").execute()
         
         logger.info(f"Stored {len(chunks)} chunks from PDF {pdf_data.document.filename}")
         return len(chunks)
@@ -68,8 +80,8 @@ def get_context_from_query(query: str, top_k: int = 5) -> str:
         # Generate embedding for the query
         query_embedding = generate_embeddings(query)
         
-        # Retrieve matching chunks
-        chunks_data = supabase.rpc("match_chunks", {
+        # Retrieve matching chunks from the sources table
+        chunks_data = supabase.rpc("match_sources", {
             "query_embedding": query_embedding,
             "match_count": top_k
         }).execute()
@@ -79,7 +91,7 @@ def get_context_from_query(query: str, top_k: int = 5) -> str:
             return ""
             
         # Extract and join the text from the chunks
-        relevant_chunks = [item["contextualized_text"] for item in chunks_data.data]
+        relevant_chunks = [item["raw_text"] for item in chunks_data.data]
         context = "\n\n".join(relevant_chunks)
         
         logger.info(f"Retrieved {len(relevant_chunks)} chunks for query: {query}")

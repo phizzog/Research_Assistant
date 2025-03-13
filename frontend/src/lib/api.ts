@@ -1,7 +1,7 @@
 // API service for interacting with the backend
 
 // Base URL for the backend API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 // Types
 import { ChatHistory, ChatMessage } from './gemini';
@@ -12,7 +12,16 @@ interface QueryResponse {
   answer: string;
 }
 
-export type Project = Database['public']['Tables']['projects']['Row'];
+// Extend the Project type to include the sources field
+export interface Source {
+  name: string;
+  document_id: string;
+  upload_date: string;
+}
+
+export type Project = Database['public']['Tables']['projects']['Row'] & {
+  sources?: Source[];
+};
 
 // Function to query the backend
 export async function queryBackend(query: string, topK: number = 5): Promise<string> {
@@ -64,10 +73,15 @@ export async function sendChatMessage(message: string, chatHistory: ChatHistory)
 }
 
 // Function to upload a file to the backend
-export async function uploadFile(file: File): Promise<string> {
+export async function uploadFile(file: File, metadata?: any): Promise<string> {
   try {
     const formData = new FormData();
     formData.append('file', file);
+    
+    // Add metadata if provided
+    if (metadata) {
+      formData.append('metadata', JSON.stringify(metadata));
+    }
 
     const response = await fetch(`${API_BASE_URL}/upload`, {
       method: 'POST',

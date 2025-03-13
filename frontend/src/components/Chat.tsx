@@ -46,7 +46,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
   };
 
   return (
-    <div className="flex flex-col h-full max-w-4xl mx-auto bg-gray-50">
+    <div className="flex flex-col h-full bg-gradient-to-b from-indigo-50 to-white">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message, index) => (
           <div
@@ -70,47 +70,47 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
                     components={{
                       // Style headings
                       h1: ({ node, ...props }: ComponentProps) => (
-                        <h1 className="text-black text-xl font-bold mt-4 mb-2" {...props} />
+                        <h1 className="text-indigo-900 text-xl font-bold mt-4 mb-2" {...props} />
                       ),
                       h2: ({ node, ...props }: ComponentProps) => (
-                        <h2 className="text-black text-lg font-bold mt-3 mb-2" {...props} />
+                        <h2 className="text-indigo-800 text-lg font-bold mt-3 mb-2" {...props} />
                       ),
                       h3: ({ node, ...props }: ComponentProps) => (
-                        <h3 className="text-black text-base font-bold mt-2 mb-1" {...props} />
+                        <h3 className="text-indigo-700 text-base font-bold mt-2 mb-1" {...props} />
                       ),
                       p: ({ node, ...props }: ComponentProps) => (
-                        <p className="text-black mb-2" {...props} />
+                        <p className="text-gray-800 mb-2" {...props} />
                       ),
                       // Style lists
                       ul: ({ node, ...props }: ComponentProps) => (
-                        <ul className="text-black list-disc pl-5 mb-2" {...props} />
+                        <ul className="text-gray-800 list-disc pl-5 mb-2" {...props} />
                       ),
                       ol: ({ node, ...props }: ComponentProps) => (
-                        <ol className="text-black list-decimal pl-5 mb-2" {...props} />
+                        <ol className="text-gray-800 list-decimal pl-5 mb-2" {...props} />
                       ),
                       li: ({ node, ...props }: ComponentProps) => (
-                        <li className="text-black mb-1" {...props} />
+                        <li className="text-gray-800 mb-1" {...props} />
                       ),
                       // Style emphasis
                       strong: ({ node, ...props }: ComponentProps) => (
-                        <strong className="text-black font-bold" {...props} />
+                        <strong className="text-gray-900 font-bold" {...props} />
                       ),
                       em: ({ node, ...props }: ComponentProps) => (
-                        <em className="text-black italic" {...props} />
+                        <em className="text-gray-800 italic" {...props} />
                       ),
                       // Style code blocks
                       code({ node, inline, className, children, ...props }: ComponentProps) {
                         const match = /language-(\w+)/.exec(className || '');
                         return !inline && match ? (
                           <div className="my-2 overflow-x-auto">
-                            <pre className="p-2 rounded bg-gray-100 text-black overflow-x-auto">
+                            <pre className="p-2 rounded bg-gray-100 text-gray-800 overflow-x-auto">
                               <code className={className} {...props}>
                                 {children}
                               </code>
                             </pre>
                           </div>
                         ) : (
-                          <code className="bg-gray-100 text-black px-1 rounded" {...props}>
+                          <code className="bg-gray-100 text-gray-800 px-1 rounded" {...props}>
                             {children}
                           </code>
                         );
@@ -118,7 +118,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
                       // Style links
                       a: ({ node, ...props }: ComponentProps) => (
                         <a 
-                          className="text-black font-medium hover:underline" 
+                          className="text-indigo-600 font-medium hover:underline" 
                           target="_blank" 
                           rel="noopener noreferrer" 
                           {...props}
@@ -127,7 +127,7 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
                       // Style tables
                       table: ({ node, ...props }: ComponentProps) => (
                         <div className="overflow-x-auto my-4">
-                          <table className="min-w-full border border-gray-300 text-black" {...props} />
+                          <table className="min-w-full border border-gray-300 text-gray-800" {...props} />
                         </div>
                       ),
                       thead: ({ node, ...props }: ComponentProps) => (
@@ -153,7 +153,6 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
 
       <form onSubmit={handleSubmit} className="p-4 bg-white border-t border-gray-200">
         <div className="flex items-center gap-2">
-          <FileUpload onFileUpload={(file) => onSendMessage('File uploaded', file)} />
           <input
             type="text"
             value={input}

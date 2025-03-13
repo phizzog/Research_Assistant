@@ -18,4 +18,10 @@ pytesseract==0.3.10
 pdf2image==1.17.0
 pandas==2.2.2
 loguru==0.7.2
-Pillow==10.3.0 
+Pillow==10.3.0
+# Token counting for chunking
+tiktoken==0.6.0
+# For embedding
+nomic==2.0.14
+# For testing
+reportlab==4.1.0 

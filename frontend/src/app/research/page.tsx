@@ -7,6 +7,7 @@ import ResearchForm from '@/components/ResearchForm';
 import ResearchQuestionsForm from '@/components/ResearchQuestionsForm';
 import ResearchTypeSelector from '@/components/ResearchTypeSelector';
 import ProfileIcon from '@/components/ProfileIcon';
+import SourcesPanel from '@/components/SourcesPanel';
 import { ChatHistory, ChatMessage } from '@/lib/gemini';
 import { 
   queryBackend, 
@@ -227,52 +228,97 @@ How would you like to proceed with your research?`
   };
 
   const handleSendMessage = async (message: string, file?: File) => {
+    if (isLoading) return;
+    
     setIsLoading(true);
     
     try {
       // Add user message to chat
-      const updatedMessages: ChatHistory = [
-        ...messages,
-        { role: 'user' as const, content: message }
-      ];
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: message
+      };
+      
+      const updatedMessages = [...messages, userMessage];
       setMessages(updatedMessages);
+      
+      let responseContent = '';
       
       // Handle file upload if provided
       if (file) {
-        const uploadResponse = await uploadFile(file);
-        const fileMessage: ChatMessage = {
-          role: 'assistant',
-          content: `File uploaded successfully. ${uploadResponse}`
-        };
-        setMessages([...updatedMessages, fileMessage]);
-        setIsLoading(false);
-        return;
+        try {
+          // Create metadata for the file
+          const metadata = {
+            project_id: Number(projectId),
+            name: file.name,
+            filename: file.name,
+            upload_date: new Date().toISOString()
+          };
+          
+          // Upload the file with metadata
+          const uploadResponse = await uploadFile(file, metadata);
+          responseContent = uploadResponse;
+          
+          // No need for setTimeout to refresh sources - we'll use the refreshSources callback
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          responseContent = 'There was an error processing your file. Please try again.';
+        }
+      } else {
+        // Regular text message
+        try {
+          responseContent = await sendChatMessage(message, updatedMessages);
+        } catch (error) {
+          console.error('Error sending message:', error);
+          responseContent = 'Sorry, I encountered an error processing your message. Please try again.';
+        }
       }
       
-      // Send message to backend
-      const response = await sendChatMessage(
-        message, 
-        updatedMessages.slice(0, -1) // Don't include the message we just added
-      );
-      
       // Add assistant response to chat
-      setMessages([
-        ...updatedMessages,
-        { role: 'assistant' as const, content: response }
-      ]);
-    } catch (err: any) {
-      console.error('Error sending message:', err);
-      // Add error message to chat
-      setMessages([
-        ...messages,
-        { role: 'user' as const, content: message },
-        { 
-          role: 'assistant' as const, 
-          content: 'Sorry, I encountered an error processing your request. Please try again.' 
-        }
-      ]);
+      const assistantMessage: ChatMessage = {
+        role: 'assistant',
+        content: responseContent
+      };
+      
+      setMessages([...updatedMessages, assistantMessage]);
+    } catch (error) {
+      console.error('Error in chat flow:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Create a refreshSources function
+  const refreshSources = async () => {
+    console.log('Refreshing sources for project', projectId);
+    
+    if (!projectId) {
+      console.error('Cannot refresh sources: No project ID provided');
+      return;
+    }
+    
+    try {
+      // First try to get the sources directly from Supabase
+      const { data, error } = await supabase
+        .from('projects')
+        .select('sources')
+        .eq('project_id', projectId)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching sources from Supabase:', error);
+      } else if (data && data.sources) {
+        console.log('Successfully refreshed sources:', data.sources);
+      } else {
+        console.log('No sources found in project data:', data);
+      }
+      
+      // Refresh the project data to update any components that depend on it
+      const project = await getProjectById(Number(projectId));
+      setCurrentProject(project);
+      console.log('Updated current project with refreshed data:', project);
+    } catch (error) {
+      console.error('Error refreshing sources:', error);
     }
   };
 
@@ -293,95 +339,106 @@ How would you like to proceed with your research?`
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-      <div className="w-full max-w-6xl mx-auto px-4 py-8">
-        <header className="flex justify-between items-center mb-8">
-          <button
-            onClick={handleBackToDashboard}
-            className="text-indigo-600 hover:text-indigo-800 flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
-            Back to Dashboard
-          </button>
-          
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-indigo-900 mb-2">
-              {currentProject ? currentProject.project_name : 'Research Assistant'}
-            </h1>
-            <p className="text-indigo-600 text-lg font-medium">
-              {currentProject && currentProject.research_type 
-                ? `${currentProject.research_type} Research Project` 
-                : 'Your AI-powered research companion'}
-            </p>
-            {!backendHealthy && (
-              <p className="text-red-500 text-sm mt-2">
-                Warning: Backend service is unavailable. Some features may not work.
-              </p>
-            )}
+    <div className="flex flex-col h-screen bg-gradient-to-b from-indigo-50 to-white">
+      {/* Header */}
+      <header className="flex justify-between items-center p-4 border-b border-gray-200 bg-white">
+        <button
+          onClick={handleBackToDashboard}
+          className="text-indigo-600 hover:text-indigo-800"
+        >
+          ← Back to Dashboard
+        </button>
+        <div className="text-center flex-1">
+          <h1 className="text-xl font-semibold text-indigo-900">
+            {currentProject?.project_name || 'New Research Project'}
+          </h1>
+          {currentProject?.research_type && (
+            <p className="text-sm text-indigo-600">{currentProject.research_type} Research</p>
+          )}
+        </div>
+        <ProfileIcon />
+      </header>
+
+      {/* Main content */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {!backendHealthy && (
+          <div className="bg-red-50 text-red-700 p-3 text-center border-b border-red-200">
+            Backend service is currently unavailable. Some features may not work properly.
           </div>
-          
-          <div>
-            <ProfileIcon />
-          </div>
-        </header>
-        
+        )}
+
         {error && (
-          <div className="mx-4 mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="bg-red-50 text-red-700 p-3 text-center border-b border-red-200">
             {error}
           </div>
         )}
-        
-        {isAuthChecking || isLoadingProject ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+
+        {isLoadingProject ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-2"></div>
+            <p className="text-indigo-600 ml-3">Loading project...</p>
           </div>
         ) : (
           <>
-            {showChat ? (
-              <Chat 
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                isLoading={isLoading}
-              />
-            ) : showResearchTypeSelector ? (
-              <ResearchTypeSelector
-                projectId={Number(projectId)}
-                suggestedType={suggestedResearchType}
-                aiExplanation={aiExplanation}
-                onComplete={handleResearchTypeSelected}
-              />
-            ) : showQuestionnaire ? (
-              <>
-                {analyzing ? (
-                  <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-2xl font-semibold text-indigo-900 mb-6 text-center">Analyzing Your Research Approach</h2>
-                    <div className="flex flex-col items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mb-4"></div>
-                      <p className="text-gray-600">Our AI is analyzing your responses to determine the best research methodology...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <ResearchQuestionsForm 
-                    onComplete={handleQuestionnaireComplete} 
-                    projectName={currentProject?.project_name}
-                  />
-                )}
-              </>
-            ) : projectId ? (
-              // If we have a project ID but haven't shown the questionnaire yet,
-              // show a loading state while we prepare to transition
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            {!showQuestionnaire && !showChat && !showResearchTypeSelector && (
+              <div className="flex-1 p-4 max-w-4xl mx-auto w-full">
+                <ResearchForm onSubmit={handleResearchSubmit} />
               </div>
-            ) : (
-              // Only show the research form for manual entry (no project ID)
-              <ResearchForm onSubmit={handleResearchSubmit} initialValue={projectDetails} />
+            )}
+
+            {showQuestionnaire && !showChat && !showResearchTypeSelector && (
+              <div className="flex-1 p-4 max-w-4xl mx-auto w-full">
+                <ResearchQuestionsForm 
+                  projectName={currentProject?.project_name}
+                  onComplete={handleQuestionnaireComplete} 
+                />
+              </div>
+            )}
+
+            {showResearchTypeSelector && !showChat && (
+              <div className="flex-1 p-4 max-w-4xl mx-auto w-full">
+                <ResearchTypeSelector 
+                  projectId={Number(projectId)}
+                  suggestedType={suggestedResearchType}
+                  aiExplanation={aiExplanation}
+                  onComplete={handleResearchTypeSelected}
+                />
+              </div>
+            )}
+
+            {showChat && (
+              <div className="flex-1 flex overflow-hidden">
+                <SourcesPanel 
+                  onFileUpload={(file) => handleSendMessage('File uploaded', file)} 
+                  projectId={Number(projectId)}
+                  refreshSources={refreshSources}
+                />
+                <div className="flex-1 overflow-hidden">
+                  <Chat 
+                    onSendMessage={handleSendMessage} 
+                    messages={messages} 
+                    isLoading={isLoading} 
+                  />
+                </div>
+              </div>
             )}
           </>
         )}
-      </div>
-    </main>
+      </main>
+
+      {analyzing && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-2 text-indigo-900">Analyzing your research needs...</h3>
+            <p className="text-gray-600 mb-4">
+              Our AI is analyzing your responses to suggest the best research methodology for your project.
+            </p>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div className="bg-indigo-600 h-2.5 rounded-full animate-pulse w-full"></div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
