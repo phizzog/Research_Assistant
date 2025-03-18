@@ -12,7 +12,7 @@ interface ResearchTypeSelectorProps {
 const RESEARCH_TYPES = [
   { value: 'Quantitative', label: 'Quantitative Research' },
   { value: 'Qualitative', label: 'Qualitative Research' },
-  { value: 'Mixed Methods', label: 'Mixed Methods Research' },
+  { value: 'Mixed', label: 'Mixed Methods Research' },
 ];
 
 const ResearchTypeSelector: React.FC<ResearchTypeSelectorProps> = ({
