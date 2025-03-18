@@ -12,7 +12,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create a single supabase client for interacting with your database
 const supabase = createClient(
   supabaseUrl || '',
-  supabaseAnonKey || ''
+  supabaseAnonKey || '',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: 'supabase.auth.token',
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    }
+  }
 );
 
 export default supabase; 

@@ -9,6 +9,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
 import FileUpload from '@/components/FileUpload';
 import { ChatHistory, ChatMessage } from '@/lib/gemini';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ChatProps {
   onSendMessage: (message: string, file?: File) => Promise<void>;
@@ -29,7 +30,168 @@ type ComponentProps = {
 
 export default function Chat({ onSendMessage, messages, isLoading, userId, projectId }: ChatProps) {
   const [input, setInput] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Generate session ID on mount
+  useEffect(() => {
+    try {
+      const newSessionId = uuidv4();
+      console.log('Generated new session ID:', newSessionId);
+      setSessionId(newSessionId);
+    } catch (err) {
+      console.error('Error generating session ID:', err);
+    }
+  }, []);
+
+  // Add session refresh on component mount
+  useEffect(() => {
+    const refreshSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!session || error) {
+          await supabase.auth.refreshSession();
+        }
+      } catch (err) {
+        console.error('Error refreshing session:', err);
+      }
+    };
+    refreshSession();
+  }, []);
+
+  // Generate new session ID when messages are cleared
+  useEffect(() => {
+    if (messages.length === 0) {
+      setSessionId(uuidv4());
+    }
+  }, [messages]);
+
+  // Store messages in Supabase when they change
+  useEffect(() => {
+    const storeMessages = async () => {
+      if (messages.length === 0 || !sessionId) {
+        console.log('Skipping message storage - no messages or no session ID');
+        return;
+      }
+
+      // Validate Supabase client
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+
+      // Validate required data
+      if (!projectId || !userId) {
+        console.error('Missing required data:', { projectId, userId });
+        return;
+      }
+      
+      try {
+        // Validate session ID format
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+          console.error('Invalid session ID format:', sessionId);
+          return;
+        }
+
+        // Get the last two messages (user and assistant pair)
+        const lastMessages = messages.slice(-2);
+        
+        for (const message of lastMessages) {
+          // Validate message data
+          if (!message.role || !message.content) {
+            console.error('Invalid message data:', message);
+            continue;
+          }
+
+          // Ensure sender_type matches the enum
+          const senderType = message.role === 'user' ? 'user' : 'assistant';
+
+          // Validate project_id is a number
+          const numericProjectId = Number(projectId);
+          if (isNaN(numericProjectId)) {
+            console.error('Invalid project ID:', projectId);
+            continue;
+          }
+
+          // Validate user_id is a UUID
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+            console.error('Invalid user ID format:', userId);
+            continue;
+          }
+
+          const messageData = {
+            project_id: numericProjectId,
+            user_id: userId,
+            sender_type: senderType,
+            message_text: message.content,
+            session_id: sessionId,
+            sent_at: new Date().toISOString()
+          };
+
+          console.log('Attempting to save message with data:', messageData);
+
+          // First check if we can query the table
+          try {
+            const { error: healthCheckError } = await supabase
+              .from('chathistory')
+              .select('message_id')
+              .eq('project_id', numericProjectId)
+              .limit(1);
+
+            if (healthCheckError) {
+              console.error('Supabase connection error:', {
+                error: healthCheckError,
+                code: healthCheckError.code,
+                details: healthCheckError.details,
+                hint: healthCheckError.hint
+              });
+              throw new Error('Failed to connect to Supabase');
+            }
+          } catch (healthCheckError) {
+            console.error('Failed to check Supabase connection:', healthCheckError);
+            throw new Error('Failed to connect to Supabase');
+          }
+
+          // Now try to insert the message
+          const { data, error } = await supabase
+            .from('chathistory')
+            .insert([messageData])
+            .select('message_id');
+
+          if (error) {
+            console.error('Error saving message:', {
+              error,
+              errorObject: JSON.stringify(error, null, 2),
+              messageData: JSON.stringify(messageData, null, 2),
+              code: error.code,
+              details: error.details,
+              hint: error.hint,
+              message: error.message
+            });
+            throw new Error(`Failed to save message: ${error.message}`);
+          } else {
+            console.log('Successfully saved message:', {
+              messageId: data?.[0]?.message_id,
+              messageData
+            });
+          }
+        }
+      } catch (error: any) {
+        console.error('Error in storeMessages:', {
+          error,
+          errorObject: error instanceof Error ? error.message : JSON.stringify(error, null, 2),
+          sessionId,
+          projectId,
+          userId,
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        });
+        throw new Error('Failed to store messages in chat history');
+      }
+    };
+
+    storeMessages();
+  }, [messages, sessionId, projectId, userId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -47,32 +209,22 @@ export default function Chat({ onSendMessage, messages, isLoading, userId, proje
     setInput('');
     
     try {
+      // Ensure session is valid before proceeding
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        await supabase.auth.refreshSession();
+      }
+      
       // Send message through normal channel
       await onSendMessage(message);
-      
-      // Store user message in Supabase
-      const { error } = await supabase
-        .from('chathistory')
-        .insert([
-          {
-            project_id: projectId,
-            user_id: userId,
-            sender_type: 'user',
-            message_text: message,
-          }
-        ]);
-
-      if (error) {
-        console.error('Error saving message:', error);
-      }
     } catch (error) {
       console.error('Error in handleSubmit:', error);
     }
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-indigo-50 to-white">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-indigo-50 to-white">
         {messages.map((message, index) => (
           <div
             key={index}

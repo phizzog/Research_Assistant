@@ -19,6 +19,7 @@ import {
   Project 
 } from '@/lib/api';
 import supabase from '@/lib/supabase';
+import ChatHistoryPanel from '@/components/ChatHistoryPanel';
 
 export default function ResearchPage() {
   const router = useRouter();
@@ -39,6 +40,23 @@ export default function ResearchPage() {
   const [showResearchTypeSelector, setShowResearchTypeSelector] = useState(false);
   const [suggestedResearchType, setSuggestedResearchType] = useState('');
   const [aiExplanation, setAiExplanation] = useState('');
+  const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat');
+  const [session, setSession] = useState<any>(null);
+  const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
+
+  // Check auth on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      
+      if (!currentSession) {
+        router.replace('/signin?redirectTo=' + encodeURIComponent(window.location.pathname + window.location.search));
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
   // Check backend health on component mount
   useEffect(() => {
@@ -69,7 +87,18 @@ export default function ResearchPage() {
             setMessages([
               {
                 role: 'assistant',
-                content: `Welcome back to your "${project.project_name}" research project! This project is using ${project.research_type} methodology. How can I assist you today?`
+                content: `# Research Project Setup Complete!
+
+## Your project "${project.project_name}" has been set up as a ${project.research_type} Research project.
+
+Based on this methodology, I can help you with:
+
+- **Designing appropriate research methods**
+- **Analyzing your data**
+- **Structuring your research paper**
+- **Finding relevant sources and literature**
+
+How would you like to proceed with your research?`
               }
             ]);
           } else {
@@ -326,6 +355,32 @@ How would you like to proceed with your research?`
     router.push('/dashboard');
   };
 
+  const handleNewChat = () => {
+    if (currentProject) {
+      setMessages([
+        {
+          role: 'assistant',
+          content: `# Research Project Setup Complete!
+
+## Your project "${currentProject.project_name}" has been set up as a ${currentProject.research_type} Research project.
+
+Based on this methodology, I can help you with:
+
+- **Designing appropriate research methods**
+- **Analyzing your data**
+- **Structuring your research paper**
+- **Finding relevant sources and literature**
+
+How would you like to proceed with your research?`
+        }
+      ]);
+    } else {
+      setMessages([]);
+    }
+    setActiveTab('chat');
+    setShowNewChatConfirm(false);
+  };
+
   if (isLoadingProject) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-white flex items-center justify-center">
@@ -413,18 +468,92 @@ How would you like to proceed with your research?`
                   projectId={Number(projectId)}
                   refreshSources={refreshSources}
                 />
-                <div className="flex-1 overflow-hidden">
-                  <Chat 
-                    onSendMessage={handleSendMessage} 
-                    messages={messages} 
-                    isLoading={isLoading} 
-                  />
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+                    <div className="flex justify-between items-center">
+                      <div className="flex">
+                        <button
+                          onClick={() => setActiveTab('chat')}
+                          className={`px-4 py-2 text-sm font-medium ${
+                            activeTab === 'chat'
+                              ? 'text-indigo-600 border-b-2 border-indigo-600'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Chat
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('history')}
+                          className={`px-4 py-2 text-sm font-medium ${
+                            activeTab === 'history'
+                              ? 'text-indigo-600 border-b-2 border-indigo-600'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          History
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setShowNewChatConfirm(true)}
+                        className="mr-4 px-3 py-1 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+                      >
+                        New Chat
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-hidden">
+                    {activeTab === 'chat' ? (
+                      <Chat 
+                        onSendMessage={handleSendMessage} 
+                        messages={messages} 
+                        isLoading={isLoading}
+                        userId={session?.user?.id || ''}
+                        projectId={Number(projectId)}
+                      />
+                    ) : (
+                      <ChatHistoryPanel
+                        projectId={Number(projectId)}
+                        userId={session?.user?.id || ''}
+                        onLoadConversation={(historicalMessages) => {
+                          setMessages(historicalMessages);
+                          setActiveTab('chat');
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </>
         )}
       </main>
+
+      {/* New Chat Confirmation Dialog */}
+      {showNewChatConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2 text-indigo-900">Start New Chat?</h3>
+            <p className="text-gray-600 mb-4">
+              This will clear your current conversation. The chat history will still be saved.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowNewChatConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleNewChat}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                Start New Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {analyzing && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
