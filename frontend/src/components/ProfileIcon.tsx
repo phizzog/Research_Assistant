@@ -6,8 +6,19 @@ import supabase from '@/lib/supabase';
 
 export default function ProfileIcon() {
   const [isOpen, setIsOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const getUserEmail = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      }
+    };
+    getUserEmail();
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -36,7 +47,8 @@ export default function ProfileIcon() {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative flex items-center gap-2" ref={dropdownRef}>
+      <span className="text-sm text-gray-600">{userEmail}</span>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
