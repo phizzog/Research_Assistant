@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import supabase from '@/lib/supabase.js';
 import { FiSend } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,6 +14,8 @@ interface ChatProps {
   onSendMessage: (message: string, file?: File) => Promise<void>;
   messages: ChatHistory;
   isLoading: boolean;
+  userId: string;
+  projectId: number;
 }
 
 // Define types for markdown components
@@ -24,7 +27,7 @@ type ComponentProps = {
   [key: string]: any;
 };
 
-export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) {
+export default function Chat({ onSendMessage, messages, isLoading, userId, projectId }: ChatProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +45,29 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
 
     const message = input.trim();
     setInput('');
-    await onSendMessage(message);
+    
+    try {
+      // Send message through normal channel
+      await onSendMessage(message);
+      
+      // Store user message in Supabase
+      const { error } = await supabase
+        .from('chathistory')
+        .insert([
+          {
+            project_id: projectId,
+            user_id: userId,
+            sender_type: 'user',
+            message_text: message,
+          }
+        ]);
+
+      if (error) {
+        console.error('Error saving message:', error);
+      }
+    } catch (error) {
+      console.error('Error in handleSubmit:', error);
+    }
   };
 
   return (
