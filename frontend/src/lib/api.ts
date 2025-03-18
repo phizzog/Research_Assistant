@@ -221,4 +221,29 @@ export async function updateProject(projectId: number, projectData: Partial<Omit
     console.error(`Error updating project with ID ${projectId}:`, error);
     throw error;
   }
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  try {
+    // Get the current user's session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // If no session, throw an error
+    if (!session?.user?.id) {
+      throw new Error('Authentication required. Please sign in to delete a project.');
+    }
+    
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('user_id', session.user.id); // Ensure the user owns the project
+      
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error(`Error deleting project with ID ${projectId}:`, error);
+    throw new Error('Failed to delete project');
+  }
 } 

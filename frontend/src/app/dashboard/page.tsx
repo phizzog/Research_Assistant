@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUserProjects, Project } from '@/lib/api';
+import { getUserProjects, Project, deleteProject } from '@/lib/api';
 import ProjectCard from '@/components/ProjectCard';
 import CreateProjectForm from '@/components/CreateProjectForm';
 import ProfileIcon from '@/components/ProfileIcon';
@@ -65,6 +65,17 @@ export default function DashboardPage() {
   const handleProjectCreated = () => {
     setShowCreateForm(false);
     fetchProjects();
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await deleteProject(projectId);
+      // Refresh the projects list after deletion
+      fetchProjects();
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      setError('Failed to delete project. Please try again.');
+    }
   };
 
   // For MVP, modify sign-out to just navigate to root
@@ -140,7 +151,11 @@ export default function DashboardPage() {
                   {projects.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {projects.map((project) => (
-                        <ProjectCard key={project.project_id} project={project} />
+                        <ProjectCard 
+                          key={project.project_id} 
+                          project={project}
+                          onDelete={handleDeleteProject}
+                        />
                       ))}
                     </div>
                   ) : (

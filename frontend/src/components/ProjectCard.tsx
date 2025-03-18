@@ -1,14 +1,28 @@
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { Project } from '@/lib/api';
 
 interface ProjectCardProps {
   project: Project;
+  onDelete: (projectId: string) => void;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
-  const router = useRouter();
-  
+export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Function to format the date
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Unknown date';
@@ -35,38 +49,50 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
     }
   };
   
-  const handleClick = () => {
-    router.replace(`/research?projectId=${project.project_id}`);
-  };
-  
   return (
-    <div 
-      className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
-      onClick={handleClick}
-    >
-      <div className="flex justify-between items-start mb-3">
-        <h3 className="text-xl font-semibold text-indigo-900 truncate">{project.project_name}</h3>
-        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getBadgeColor(project.research_type)}`}>
-          {project.research_type || 'Unspecified'}
-        </span>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative">
+      {/* Three dots menu button */}
+      <div className="absolute top-4 right-4" ref={menuRef}>
+        <button
+          onClick={() => setShowMenu(!showMenu)}
+          className="p-1 hover:bg-gray-100 rounded-full"
+        >
+          <svg
+            className="w-5 h-5 text-gray-500"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+          </svg>
+        </button>
+
+        {/* Dropdown menu */}
+        {showMenu && (
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this project?')) {
+                  onDelete(project.project_id);
+                }
+                setShowMenu(false);
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+            >
+              Delete Project
+            </button>
+          </div>
+        )}
       </div>
-      
-      {project.description && (
-        <p className="text-gray-600 mb-4 line-clamp-2">{project.description}</p>
-      )}
-      
-      {project.learning_objective && (
-        <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-1">Learning Objective:</h4>
-          <p className="text-gray-600 text-sm line-clamp-2">{project.learning_objective}</p>
+
+      <Link href={`/project/${project.project_id}`}>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2 pr-8">
+          {project.project_name}
+        </h3>
+        <p className="text-gray-600 mb-4">{project.description}</p>
+        <div className="text-sm text-gray-500">
+          Created: {formatDate(project.created_at)}
         </div>
-      )}
-      
-      <div className="text-xs text-gray-500 mt-2">
-        Created on {formatDate(project.created_at)}
-      </div>
+      </Link>
     </div>
   );
-};
-
-export default ProjectCard; 
+} 
