@@ -1,22 +1,20 @@
 import { useState, useEffect } from 'react';
 import supabase from '@/lib/supabase';
 import { format } from 'date-fns';
-import { ChatHistory } from '@/lib/gemini';
+import { ChatHistory, ChatMessage } from '@/lib/gemini';
+import { FiTrash2 } from 'react-icons/fi';
 
 interface ChatHistoryPanelProps {
   projectId: number;
   userId: string;
-  onLoadConversation: (messages: ChatHistory) => void;
+  onLoadConversation: (messages: ChatHistory, sessionId: string) => void;
 }
 
 interface Conversation {
-  session_id: string;
-  date: string;
-  messages: Array<{
-    message_text: string;
-    sender_type: string;
-    sent_at: string;
-  }>;
+  sessionId: string;
+  messages: ChatMessage[];
+  lastMessage: string;
+  timestamp: Date;
 }
 
 export default function ChatHistoryPanel({ projectId, userId, onLoadConversation }: ChatHistoryPanelProps) {
@@ -25,66 +23,115 @@ export default function ChatHistoryPanel({ projectId, userId, onLoadConversation
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadChatHistory();
+    const fetchHistory = async () => {
+      if (!projectId || !userId) {
+        setIsLoading(false);
+        return;
+      }
+      
+      try {
+        setIsLoading(true);
+        console.log('Fetching chat history for:', { projectId, userId });
+        
+        const { data, error } = await supabase
+          .from('chathistory')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('user_id', userId)
+          .order('sent_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching chat history:', error);
+          setError('Failed to load chat history');
+          return;
+        }
+
+        console.log('Raw chat history data:', data);
+
+        // Group messages by session_id
+        const groupedMessages = data.reduce((acc, message) => {
+          if (!acc[message.session_id]) {
+            acc[message.session_id] = [];
+          }
+          acc[message.session_id].push(message);
+          return acc;
+        }, {} as Record<string, any[]>);
+
+        // Convert to array of conversations
+        const conversations = Object.entries(groupedMessages).map(([sessionId, messages]) => {
+          const typedMessages = messages as any[];
+          // Sort messages by sent_at
+          const sortedMessages = typedMessages.sort((a: any, b: any) => 
+            new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime()
+          );
+
+          // Convert to ChatMessage format
+          const chatMessages: ChatMessage[] = sortedMessages.map((msg: any) => ({
+            role: msg.sender_type === 'User' ? 'user' : 'assistant',
+            content: msg.message_text
+          }));
+
+          return {
+            sessionId,
+            messages: chatMessages,
+            lastMessage: chatMessages[chatMessages.length - 1].content,
+            timestamp: new Date(sortedMessages[sortedMessages.length - 1].sent_at)
+          };
+        });
+
+        console.log('Fetched conversations:', conversations);
+        setConversations(conversations);
+        setError('');
+      } catch (error) {
+        console.error('Error fetching chat history:', error);
+        setError('Failed to load chat history');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHistory();
+
+    // Add event listener for refreshHistory event
+    const handleRefreshHistory = () => {
+      console.log('Refreshing chat history...');
+      fetchHistory();
+    };
+
+    window.addEventListener('refreshHistory', handleRefreshHistory);
+    return () => {
+      window.removeEventListener('refreshHistory', handleRefreshHistory);
+    };
   }, [projectId, userId]);
 
-  const loadChatHistory = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
+  const handleLoadConversation = (messages: ChatMessage[], sessionId: string) => {
+    console.log('Loading conversation:', messages);
+    onLoadConversation(messages, sessionId);
+  };
 
-      const { data, error } = await supabase
+  const handleDeleteConversation = async (sessionId: string) => {
+    if (!confirm('Are you sure you want to delete this conversation?')) {
+      return;
+    }
+
+    try {
+      console.log('Deleting conversation:', sessionId);
+      const { error } = await supabase
         .from('chathistory')
-        .select('*')
+        .delete()
         .eq('project_id', projectId)
         .eq('user_id', userId)
-        .order('sent_at', { ascending: true });
+        .eq('session_id', sessionId);
 
       if (error) throw error;
 
-      // Group messages by session_id
-      const groupedMessages = data.reduce((acc: Record<string, {
-        messages: Array<{
-          message_text: string;
-          sender_type: string;
-          sent_at: string;
-        }>;
-        date: string;
-      }>, message) => {
-        const sessionId = message.session_id || 'default';
-        if (!acc[sessionId]) {
-          acc[sessionId] = {
-            messages: [],
-            date: new Date(message.sent_at).toISOString()
-          };
-        }
-        acc[sessionId].messages.push(message);
-        return acc;
-      }, {});
-
-      // Convert to array format and sort by date (newest first)
-      const conversationsArray = Object.entries(groupedMessages).map(([session_id, { messages, date }]) => ({
-        session_id,
-        date,
-        messages
-      })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      setConversations(conversationsArray);
-    } catch (err) {
-      console.error('Error loading chat history:', err);
-      setError('Failed to load chat history');
-    } finally {
-      setIsLoading(false);
+      // Remove the conversation from the local state
+      setConversations(prev => prev.filter(conv => conv.sessionId !== sessionId));
+      console.log('Conversation deleted successfully');
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('Failed to delete conversation. Please try again.');
     }
-  };
-
-  const handleLoadConversation = (messages: any[]) => {
-    // Convert messages to ChatHistory format
-    const formattedMessages = messages.map(msg => ({
-      role: msg.sender_type,
-      content: msg.message_text
-    }));
-    onLoadConversation(formattedMessages);
   };
 
   if (isLoading) {
@@ -104,7 +151,7 @@ export default function ChatHistoryPanel({ projectId, userId, onLoadConversation
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-white">
+    <div data-testid="chat-history-panel" className="h-full overflow-y-auto bg-white">
       <div className="p-4">
         <h2 className="text-lg font-semibold text-indigo-900 mb-4">Chat History</h2>
         
@@ -113,26 +160,36 @@ export default function ChatHistoryPanel({ projectId, userId, onLoadConversation
         ) : (
           <div className="space-y-6">
             {conversations.map((conversation) => (
-              <div key={conversation.session_id} className="border border-gray-200 rounded-lg">
-                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+              <div key={conversation.sessionId} className="border border-gray-200 rounded-lg">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="text-sm font-medium text-gray-700">
-                    {format(new Date(conversation.date), 'MMMM d, yyyy')}
+                    {format(conversation.timestamp, 'MMMM d, yyyy')}
                   </h3>
+                  <button
+                    onClick={() => handleDeleteConversation(conversation.sessionId)}
+                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                    title="Delete conversation"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                  </button>
                 </div>
                 <div className="p-4">
                   <div className="space-y-2">
-                    {/* Show first message from user and first response from assistant */}
+                    {/* Show last message from user and last response from assistant */}
                     {conversation.messages
+                      .slice()
+                      .reverse()
                       .filter((msg, index, arr) => {
-                        const isFirstOfType = arr.findIndex(m => m.sender_type === msg.sender_type) === index;
-                        return isFirstOfType;
+                        const isLastOfType = arr.findIndex(m => m.role === msg.role) === index;
+                        return isLastOfType;
                       })
+                      .reverse()
                       .map((msg, j) => (
                         <p key={j} className="text-sm text-gray-600 truncate">
                           <span className="font-medium">
-                            {msg.sender_type === 'user' ? 'You' : 'Assistant'}:
+                            {msg.role === 'user' ? 'You' : 'Assistant'}:
                           </span>{' '}
-                          {msg.message_text}
+                          {msg.content}
                         </p>
                       ))}
                   </div>
@@ -140,7 +197,7 @@ export default function ChatHistoryPanel({ projectId, userId, onLoadConversation
                     {conversation.messages.length} messages
                   </div>
                   <button
-                    onClick={() => handleLoadConversation(conversation.messages)}
+                    onClick={() => handleLoadConversation(conversation.messages, conversation.sessionId)}
                     className="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                   >
                     Load Conversation

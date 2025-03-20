@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import supabase from '@/lib/supabase.js';
+import { supabase, checkSupabaseConnection } from '@/lib/supabase';
 import { FiSend } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,6 +17,8 @@ interface ChatProps {
   isLoading: boolean;
   userId: string;
   projectId: number;
+  onClearHistory: () => Promise<void>;
+  onSessionIdChange?: (sessionId: string) => void;
 }
 
 // Define types for markdown components
@@ -28,17 +30,20 @@ type ComponentProps = {
   [key: string]: any;
 };
 
-export default function Chat({ onSendMessage, messages, isLoading, userId, projectId }: ChatProps) {
+export default function Chat({ onSendMessage, messages, isLoading, userId, projectId, onClearHistory, onSessionIdChange }: ChatProps) {
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Generate session ID on mount
+  // Generate session ID on mount only if there are no messages
   useEffect(() => {
     try {
-      const newSessionId = uuidv4();
-      console.log('Generated new session ID:', newSessionId);
-      setSessionId(newSessionId);
+      if (messages.length === 0) {
+        const newSessionId = uuidv4();
+        console.log('Generated new session ID for new conversation:', newSessionId);
+        setSessionId(newSessionId);
+        onSessionIdChange?.(newSessionId);
+      }
     } catch (err) {
       console.error('Error generating session ID:', err);
     }
@@ -59,139 +64,15 @@ export default function Chat({ onSendMessage, messages, isLoading, userId, proje
     refreshSession();
   }, []);
 
-  // Generate new session ID when messages are cleared
+  // Generate new session ID only when messages are cleared (new conversation)
   useEffect(() => {
     if (messages.length === 0) {
-      setSessionId(uuidv4());
+      const newSessionId = uuidv4();
+      console.log('Generated new session ID for cleared conversation:', newSessionId);
+      setSessionId(newSessionId);
+      onSessionIdChange?.(newSessionId);
     }
   }, [messages]);
-
-  // Store messages in Supabase when they change
-  useEffect(() => {
-    const storeMessages = async () => {
-      if (messages.length === 0 || !sessionId) {
-        console.log('Skipping message storage - no messages or no session ID');
-        return;
-      }
-
-      // Validate Supabase client
-      if (!supabase) {
-        console.error('Supabase client is not initialized');
-        return;
-      }
-
-      // Validate required data
-      if (!projectId || !userId) {
-        console.error('Missing required data:', { projectId, userId });
-        return;
-      }
-      
-      try {
-        // Validate session ID format
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
-          console.error('Invalid session ID format:', sessionId);
-          return;
-        }
-
-        // Get the last two messages (user and assistant pair)
-        const lastMessages = messages.slice(-2);
-        
-        for (const message of lastMessages) {
-          // Validate message data
-          if (!message.role || !message.content) {
-            console.error('Invalid message data:', message);
-            continue;
-          }
-
-          // Ensure sender_type matches the enum
-          const senderType = message.role === 'user' ? 'user' : 'assistant';
-
-          // Validate project_id is a number
-          const numericProjectId = Number(projectId);
-          if (isNaN(numericProjectId)) {
-            console.error('Invalid project ID:', projectId);
-            continue;
-          }
-
-          // Validate user_id is a UUID
-          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
-            console.error('Invalid user ID format:', userId);
-            continue;
-          }
-
-          const messageData = {
-            project_id: numericProjectId,
-            user_id: userId,
-            sender_type: senderType,
-            message_text: message.content,
-            session_id: sessionId,
-            sent_at: new Date().toISOString()
-          };
-
-          console.log('Attempting to save message with data:', messageData);
-
-          // First check if we can query the table
-          try {
-            const { error: healthCheckError } = await supabase
-              .from('chathistory')
-              .select('message_id')
-              .eq('project_id', numericProjectId)
-              .limit(1);
-
-            if (healthCheckError) {
-              console.error('Supabase connection error:', {
-                error: healthCheckError,
-                code: healthCheckError.code,
-                details: healthCheckError.details,
-                hint: healthCheckError.hint
-              });
-              throw new Error('Failed to connect to Supabase');
-            }
-          } catch (healthCheckError) {
-            console.error('Failed to check Supabase connection:', healthCheckError);
-            throw new Error('Failed to connect to Supabase');
-          }
-
-          // Now try to insert the message
-          const { data, error } = await supabase
-            .from('chathistory')
-            .insert([messageData])
-            .select('message_id');
-
-          if (error) {
-            console.error('Error saving message:', {
-              error,
-              errorObject: JSON.stringify(error, null, 2),
-              messageData: JSON.stringify(messageData, null, 2),
-              code: error.code,
-              details: error.details,
-              hint: error.hint,
-              message: error.message
-            });
-            throw new Error(`Failed to save message: ${error.message}`);
-          } else {
-            console.log('Successfully saved message:', {
-              messageId: data?.[0]?.message_id,
-              messageData
-            });
-          }
-        }
-      } catch (error: any) {
-        console.error('Error in storeMessages:', {
-          error,
-          errorObject: error instanceof Error ? error.message : JSON.stringify(error, null, 2),
-          sessionId,
-          projectId,
-          userId,
-          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        });
-        throw new Error('Failed to store messages in chat history');
-      }
-    };
-
-    storeMessages();
-  }, [messages, sessionId, projectId, userId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -209,12 +90,6 @@ export default function Chat({ onSendMessage, messages, isLoading, userId, proje
     setInput('');
     
     try {
-      // Ensure session is valid before proceeding
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        await supabase.auth.refreshSession();
-      }
-      
       // Send message through normal channel
       await onSendMessage(message);
     } catch (error) {
