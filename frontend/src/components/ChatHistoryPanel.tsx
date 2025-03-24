@@ -8,6 +8,7 @@ interface ChatHistoryPanelProps {
   projectId: number;
   userId: string;
   onLoadConversation: (messages: ChatHistory, sessionId: string) => void;
+  showNewChat?: boolean;
 }
 
 interface Conversation {
@@ -17,7 +18,12 @@ interface Conversation {
   timestamp: Date;
 }
 
-export default function ChatHistoryPanel({ projectId, userId, onLoadConversation }: ChatHistoryPanelProps) {
+export default function ChatHistoryPanel({ 
+  projectId, 
+  userId, 
+  onLoadConversation,
+  showNewChat = false 
+}: ChatHistoryPanelProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -153,7 +159,17 @@ export default function ChatHistoryPanel({ projectId, userId, onLoadConversation
   return (
     <div data-testid="chat-history-panel" className="h-full overflow-y-auto bg-white">
       <div className="p-4">
-        <h2 className="text-lg font-semibold text-indigo-900 mb-4">Chat History</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Chat History</h2>
+          {showNewChat && (
+            <button
+              onClick={() => onLoadConversation([], '')}
+              className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              New Chat
+            </button>
+          )}
+        </div>
         
         {conversations.length === 0 ? (
           <p className="text-gray-500">No chat history available</p>

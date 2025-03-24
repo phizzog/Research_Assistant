@@ -647,12 +647,14 @@ How would you like to proceed with your research?`
                           History
                         </button>
                       </div>
-                      <button
-                        onClick={() => setShowNewChatConfirm(true)}
-                        className="mr-4 px-3 py-1 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
-                      >
-                        New Chat
-                      </button>
+                      {activeTab === 'chat' && (
+                        <button
+                          onClick={() => setShowNewChatConfirm(true)}
+                          className="mr-4 px-3 py-1 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+                        >
+                          New Chat
+                        </button>
+                      )}
                     </div>
                   </div>
                   
@@ -672,6 +674,7 @@ How would you like to proceed with your research?`
                         projectId={Number(projectId)}
                         userId={session?.user?.id || ''}
                         onLoadConversation={handleLoadConversation}
+                        showNewChat={false}
                       />
                     )}
                   </div>
