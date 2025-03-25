@@ -363,7 +363,12 @@ How would you like to proceed with your research?`
     }
   };
 
-  const handleBackToDashboard = () => {
+  const handleBackToDashboard = async () => {
+    // Save current conversation before navigating
+    if (messages.length > 0) {
+      console.log('Saving current conversation before navigating to dashboard');
+      await saveCurrentConversation();
+    }
     router.push('/dashboard');
   };
 
