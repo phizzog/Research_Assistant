@@ -11,6 +11,7 @@ export const initializeGemini = (apiKey: string) => {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  sessionId?: string;
 }
 
 // Type for the chat history

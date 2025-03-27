@@ -12,18 +12,37 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create a single supabase client for interacting with your database
-const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    debug: process.env.NODE_ENV !== 'production',
     storageKey: 'supabase.auth.token',
     detectSessionInUrl: true,
     flowType: 'pkce',
   },
+  db: {
+    schema: 'public'
+  },
   global: {
     headers: { 'x-application-name': 'research-assistant' },
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
 });
+
+// Export a function to check Supabase connection
+export async function checkSupabaseConnection() {
+  try {
+    const { data, error } = await supabase.from('chathistory').select('count').limit(1);
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Supabase connection error:', error);
+    return false;
+  }
+}
 
 export default supabase; 

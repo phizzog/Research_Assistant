@@ -19,6 +19,8 @@ import {
   Project 
 } from '@/lib/api';
 import supabase from '@/lib/supabase';
+import ChatHistoryPanel from '@/components/ChatHistoryPanel';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function ResearchPage() {
   const router = useRouter();
@@ -39,8 +41,29 @@ export default function ResearchPage() {
   const [showResearchTypeSelector, setShowResearchTypeSelector] = useState(false);
   const [suggestedResearchType, setSuggestedResearchType] = useState('');
   const [aiExplanation, setAiExplanation] = useState('');
+<<<<<<< HEAD
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [enhancedQueries, setEnhancedQueries] = useState<boolean>(true);
+=======
+  const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat');
+  const [session, setSession] = useState<any>(null);
+  const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string>('');
+
+  // Check auth on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      
+      if (!currentSession) {
+        router.replace('/signin?redirectTo=' + encodeURIComponent(window.location.pathname + window.location.search));
+      }
+    };
+    
+    checkAuth();
+  }, []);
+>>>>>>> cda266fe84d540c00bbdc68d9ffad3f27721806b
 
   // Check backend health on component mount
   useEffect(() => {
@@ -68,10 +91,26 @@ export default function ResearchPage() {
           // If the project already has a research type, we can skip to the chat
           if (project.research_type) {
             setShowChat(true);
+            // Generate a new session ID when starting the chat
+            const newSessionId = uuidv4();
+            setCurrentSessionId(newSessionId);
+            console.log('Starting chat with new session ID:', newSessionId);
+            
             setMessages([
               {
                 role: 'assistant',
-                content: `Welcome back to your "${project.project_name}" research project! This project is using ${project.research_type} methodology. How can I assist you today?`
+                content: `# Research Project Setup Complete!
+
+## Your project "${project.project_name}" has been set up as a ${project.research_type} Research project.
+
+Based on this methodology, I can help you with:
+
+- **Designing appropriate research methods**
+- **Analyzing your data**
+- **Structuring your research paper**
+- **Finding relevant sources and literature**
+
+How would you like to proceed with your research?`
               }
             ]);
           } else {
@@ -200,6 +239,11 @@ ${formattedResponses}
       try {
         const project = await getProjectById(Number(projectId));
         setCurrentProject(project);
+        
+        // Generate a new session ID when starting the chat
+        const newSessionId = uuidv4();
+        setCurrentSessionId(newSessionId);
+        console.log('Starting chat with new session ID:', newSessionId);
         
         // Show the chat with a welcome message
         setShowChat(true);
@@ -337,8 +381,181 @@ How would you like to proceed with your research?`
     }
   };
 
-  const handleBackToDashboard = () => {
+  const handleBackToDashboard = async () => {
+    // Save current conversation before navigating
+    if (messages.length > 0) {
+      console.log('Saving current conversation before navigating to dashboard');
+      await saveCurrentConversation();
+    }
     router.push('/dashboard');
+  };
+
+  const handleNewChat = async () => {
+    console.log('Starting handleNewChat with current state:', {
+      messagesLength: messages.length,
+      currentSessionId,
+      projectId,
+      userId: session?.user?.id
+    });
+
+    // Save current conversation before clearing
+    if (messages.length > 0) {
+      console.log('Saving current conversation before starting new chat');
+      await saveCurrentConversation();
+      
+      // Force a refresh of the history panel
+      console.log('Refreshing history panel...');
+      const event = new CustomEvent('refreshHistory');
+      window.dispatchEvent(event);
+    }
+
+    // Generate a new session ID for the new chat
+    const newSessionId = uuidv4();
+    console.log('Generated new session ID:', newSessionId);
+    setCurrentSessionId(newSessionId);
+
+    if (currentProject) {
+      const initialMessage: ChatMessage = {
+        role: 'assistant' as const,
+        content: `# Research Project Setup Complete!
+
+## Your project "${currentProject.project_name}" has been set up as a ${currentProject.research_type} Research project.
+
+Based on this methodology, I can help you with:
+
+- **Designing appropriate research methods**
+- **Analyzing your data**
+- **Structuring your research paper**
+- **Finding relevant sources and literature**
+
+How would you like to proceed with your research?`
+      };
+
+      // Set messages with the new session ID
+      setMessages([initialMessage]);
+      console.log('Set initial message with new session ID');
+    } else {
+      setMessages([]);
+    }
+    setActiveTab('chat');
+    setShowNewChatConfirm(false);
+  };
+
+  const saveCurrentConversation = async () => {
+    console.log('Starting saveCurrentConversation with:', {
+      messagesLength: messages.length,
+      hasUserMessages: messages.some(msg => msg.role === 'user'),
+      userId: session?.user?.id,
+      projectId,
+      currentSessionId
+    });
+
+    // Skip if there's no user interaction (only AI messages) or no messages at all
+    const hasUserMessages = messages.some(msg => msg.role === 'user');
+    if (!messages.length || !session?.user?.id || !projectId || !hasUserMessages) {
+      console.log('Skipping save - no user interaction:', { 
+        messagesLength: messages.length, 
+        hasUserMessages,
+        userId: session?.user?.id, 
+        projectId 
+      });
+      return;
+    }
+
+    try {
+      // Use the current session ID
+      const sessionIdToUse = currentSessionId;
+      if (!sessionIdToUse) {
+        console.log('No session ID available, skipping save');
+        return;
+      }
+
+      console.log('Saving conversation with session ID:', sessionIdToUse);
+
+      // Prepare messages for insertion with the same session ID and sequential timestamps
+      const messagesToInsert = messages.map((message, index) => ({
+        project_id: Number(projectId),
+        user_id: session.user.id,
+        sender_type: message.role === 'user' ? 'User' : 'AI',
+        message_text: message.content,
+        session_id: sessionIdToUse,
+        sent_at: new Date(Date.now() + index * 1000).toISOString() // Add 1 second between messages
+      }));
+
+      console.log('Messages to insert:', messagesToInsert);
+
+      // Delete any existing messages with this session ID to prevent duplicates
+      console.log('Deleting existing messages for session:', sessionIdToUse);
+      const { error: deleteError } = await supabase
+        .from('chathistory')
+        .delete()
+        .eq('session_id', sessionIdToUse)
+        .eq('project_id', projectId)
+        .eq('user_id', session.user.id);
+
+      if (deleteError) {
+        console.error('Error deleting existing messages:', deleteError);
+        throw deleteError;
+      }
+
+      // Insert all messages as a single conversation
+      console.log('Inserting new messages...');
+      const { error: insertError } = await supabase
+        .from('chathistory')
+        .insert(messagesToInsert);
+
+      if (insertError) {
+        console.error('Error saving conversation:', insertError);
+        throw insertError;
+      }
+
+      console.log('Conversation saved successfully');
+    } catch (error) {
+      console.error('Error saving conversation:', error);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    // Save current conversation before clearing
+    if (messages.length > 0) {
+      await saveCurrentConversation();
+    }
+    setMessages([]);
+    setCurrentSessionId(''); // Clear the session ID
+  };
+
+  // Save conversation only when navigating away from the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (messages.length > 0) {
+        saveCurrentConversation();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [messages, currentSessionId, session?.user?.id, projectId]);
+
+  const handleLoadConversation = async (messages: ChatHistory, sessionId: string) => {
+    console.log('Loading conversation with session ID:', sessionId);
+    
+    // Save current conversation before loading the historical one
+    if (messages.length > 0) {
+      console.log('Saving current conversation before loading historical one');
+      await saveCurrentConversation();
+      
+      // Force a refresh of the history panel
+      console.log('Refreshing history panel...');
+      const event = new CustomEvent('refreshHistory');
+      window.dispatchEvent(event);
+    }
+
+    // Set the new messages and session ID
+    setMessages(messages);
+    setCurrentSessionId(sessionId);
+    setActiveTab('chat'); // Switch back to chat tab
   };
 
   if (isLoadingProject) {
@@ -429,18 +646,94 @@ How would you like to proceed with your research?`
                   refreshSources={refreshSources}
                   onSourceSelectionChange={handleSourceSelectionChange}
                 />
-                <div className="flex-1 overflow-hidden">
-                  <Chat 
-                    onSendMessage={handleSendMessage} 
-                    messages={messages} 
-                    isLoading={isLoading} 
-                  />
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+                    <div className="flex justify-between items-center">
+                      <div className="flex">
+                        <button
+                          onClick={() => setActiveTab('chat')}
+                          className={`px-4 py-2 text-sm font-medium ${
+                            activeTab === 'chat'
+                              ? 'text-indigo-600 border-b-2 border-indigo-600'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Chat
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('history')}
+                          className={`px-4 py-2 text-sm font-medium ${
+                            activeTab === 'history'
+                              ? 'text-indigo-600 border-b-2 border-indigo-600'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          History
+                        </button>
+                      </div>
+                      {activeTab === 'chat' && (
+                        <button
+                          onClick={() => setShowNewChatConfirm(true)}
+                          className="mr-4 px-3 py-1 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+                        >
+                          New Chat
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-hidden">
+                    {activeTab === 'chat' ? (
+                      <Chat 
+                        onSendMessage={handleSendMessage} 
+                        messages={messages} 
+                        isLoading={isLoading}
+                        userId={session?.user?.id || ''}
+                        projectId={Number(projectId)}
+                        onClearHistory={handleClearHistory}
+                        onSessionIdChange={setCurrentSessionId}
+                      />
+                    ) : (
+                      <ChatHistoryPanel
+                        projectId={Number(projectId)}
+                        userId={session?.user?.id || ''}
+                        onLoadConversation={handleLoadConversation}
+                        showNewChat={false}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </>
         )}
       </main>
+
+      {/* New Chat Confirmation Dialog */}
+      {showNewChatConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2 text-indigo-900">Start New Chat?</h3>
+            <p className="text-gray-600 mb-4">
+              This will clear your current conversation. The chat history will still be saved.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowNewChatConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleNewChat}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                Start New Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {analyzing && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

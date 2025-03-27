@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { supabase, checkSupabaseConnection } from '@/lib/supabase';
 import { FiSend } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,11 +9,16 @@ import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
 import FileUpload from '@/components/FileUpload';
 import { ChatHistory, ChatMessage } from '@/lib/gemini';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ChatProps {
   onSendMessage: (message: string, file?: File) => Promise<void>;
   messages: ChatHistory;
   isLoading: boolean;
+  userId: string;
+  projectId: number;
+  onClearHistory: () => Promise<void>;
+  onSessionIdChange?: (sessionId: string) => void;
 }
 
 // Define types for markdown components
@@ -24,9 +30,49 @@ type ComponentProps = {
   [key: string]: any;
 };
 
-export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) {
+export default function Chat({ onSendMessage, messages, isLoading, userId, projectId, onClearHistory, onSessionIdChange }: ChatProps) {
   const [input, setInput] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Generate session ID on mount only if there are no messages
+  useEffect(() => {
+    try {
+      if (messages.length === 0) {
+        const newSessionId = uuidv4();
+        console.log('Generated new session ID for new conversation:', newSessionId);
+        setSessionId(newSessionId);
+        onSessionIdChange?.(newSessionId);
+      }
+    } catch (err) {
+      console.error('Error generating session ID:', err);
+    }
+  }, []);
+
+  // Add session refresh on component mount
+  useEffect(() => {
+    const refreshSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!session || error) {
+          await supabase.auth.refreshSession();
+        }
+      } catch (err) {
+        console.error('Error refreshing session:', err);
+      }
+    };
+    refreshSession();
+  }, []);
+
+  // Generate new session ID only when messages are cleared (new conversation)
+  useEffect(() => {
+    if (messages.length === 0) {
+      const newSessionId = uuidv4();
+      console.log('Generated new session ID for cleared conversation:', newSessionId);
+      setSessionId(newSessionId);
+      onSessionIdChange?.(newSessionId);
+    }
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,12 +88,18 @@ export default function Chat({ onSendMessage, messages, isLoading }: ChatProps) 
 
     const message = input.trim();
     setInput('');
-    await onSendMessage(message);
+    
+    try {
+      // Send message through normal channel
+      await onSendMessage(message);
+    } catch (error) {
+      console.error('Error in handleSubmit:', error);
+    }
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-indigo-50 to-white">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-indigo-50 to-white">
         {messages.map((message, index) => (
           <div
             key={index}
