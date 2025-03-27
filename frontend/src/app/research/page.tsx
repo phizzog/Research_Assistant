@@ -41,10 +41,8 @@ export default function ResearchPage() {
   const [showResearchTypeSelector, setShowResearchTypeSelector] = useState(false);
   const [suggestedResearchType, setSuggestedResearchType] = useState('');
   const [aiExplanation, setAiExplanation] = useState('');
-<<<<<<< HEAD
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [enhancedQueries, setEnhancedQueries] = useState<boolean>(true);
-=======
   const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat');
   const [session, setSession] = useState<any>(null);
   const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
@@ -63,7 +61,6 @@ export default function ResearchPage() {
     
     checkAuth();
   }, []);
->>>>>>> cda266fe84d540c00bbdc68d9ffad3f27721806b
 
   // Check backend health on component mount
   useEffect(() => {

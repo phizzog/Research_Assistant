@@ -1,0 +1,19 @@
+{
+  "name": "research-assistant",
+  "version": "1.0.0",
+  "description": "Research Assistant with frontend and backend components",
+  "private": true,
+  "scripts": {
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:start": "cd frontend && npm run start",
+    "frontend:install": "cd frontend && npm install",
+    "backend:dev": "cd backend && python -m main",
+    "backend:install": "cd backend && pip install -r requirements.txt",
+    "dev": "concurrently \"npm run frontend:dev\" \"npm run backend:dev\"",
+    "install-all": "npm run frontend:install && npm run backend:install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 
