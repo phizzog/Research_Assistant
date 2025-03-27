@@ -29,7 +29,7 @@ export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
   };
 
   const handleClick = () => {
-    router.push(`/research?projectId=${project.project_id}`); // Use push instead of replace for better history
+    router.push(`/research?projectId=${project.project_id}`);
   };
 
   return (
@@ -40,7 +40,7 @@ export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
       <div className="absolute top-4 right-4" ref={menuRef}>
         <button
           onClick={(e) => {
-            e.stopPropagation(); // Prevent triggering handleClick
+            e.stopPropagation();
             setShowMenu(!showMenu);
           }}
           className="p-1 hover:bg-gray-100 rounded-full"
@@ -55,7 +55,7 @@ export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
               onClick={(e) => {
                 e.stopPropagation();
                 if (confirm('Are you sure you want to delete this project?')) {
-                  onDelete(project.project_id);
+                  onDelete(project.project_id.toString());
                 }
                 setShowMenu(false);
               }}
@@ -67,7 +67,10 @@ export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
         )}
       </div>
       <h3 className="text-xl font-semibold text-gray-900 mb-2 pr-8">{project.project_name}</h3>
-      <p className="text-gray-600 mb-4">{project.description}</p>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm font-medium text-gray-500">Research Type:</span>
+        <span className="text-sm text-gray-700">{project.research_type || 'Not specified'}</span>
+      </div>
       <div className="text-sm text-gray-500">Created: {formatDate(project.created_at)}</div>
     </div>
   );

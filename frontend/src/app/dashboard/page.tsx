@@ -92,12 +92,6 @@ export default function DashboardPage() {
             <p className="text-indigo-600 text-lg font-medium">Manage your research projects</p>
           </div>
           <div className="flex items-center space-x-4">
-            <button
-              onClick={handleSignOut}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              Sign Out
-            </button>
             <ProfileIcon />
           </div>
         </header>
