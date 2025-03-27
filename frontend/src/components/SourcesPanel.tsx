@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiPlus, FiFile, FiCheck, FiEdit2, FiSave, FiRefreshCw } from 'react-icons/fi';
 import supabase from '@/lib/supabase';
-import { uploadFile, getProjectById, Source } from '@/lib/api';
+import { getProjectById, Source } from '@/lib/api';
 
 interface SourceWithState extends Source {
   selected?: boolean;
@@ -13,25 +13,30 @@ interface SourcesPanelProps {
   onFileUpload: (file: File) => void;
   projectId: number;
   refreshSources?: () => void;
+  onSourceSelectionChange?: (selectedDocumentIds: string[]) => void;
 }
 
-const SourcesPanel: React.FC<SourcesPanelProps> = ({ onFileUpload, projectId, refreshSources }) => {
+const SourcesPanel: React.FC<SourcesPanelProps> = ({ 
+  onFileUpload, 
+  projectId, 
+  refreshSources,
+  onSourceSelectionChange 
+}) => {
   const [sources, setSources] = useState<SourceWithState[]>([]);
   const [allSelected, setAllSelected] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   // Fetch sources from the project's sources field
   const fetchSources = useCallback(async () => {
     if (!projectId) return;
     
+    console.log(`Fetching sources for project ${projectId}`);
     setRefreshing(true);
     try {
-      console.log(`Fetching sources for project ${projectId}`);
-      
       // First, check if the sources column exists in the projects table
       try {
+        console.log(`Querying Supabase directly for project ${projectId} sources`);
         const { data: columnData, error: columnError } = await supabase
           .from('projects')
           .select('sources')
@@ -40,84 +45,96 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ onFileUpload, projectId, re
           
         if (columnError) {
           console.error('Error checking sources column:', columnError);
-          setDebugInfo(prev => `${prev || ''}\nError checking sources column: ${columnError.message}`);
         } else {
-          console.log('Direct Supabase query result:', columnData);
-          setDebugInfo(prev => `${prev || ''}\nDirect Supabase query result: ${JSON.stringify(columnData)}`);
+          console.log(`Supabase response for project ${projectId}:`, columnData);
           
           if (columnData && columnData.sources) {
-            console.log('Sources from direct query:', columnData.sources);
+            console.log(`Sources from Supabase for project ${projectId}:`, columnData.sources);
             
             // Transform the sources to include selected state and editing state
             const sourcesWithSelection = (columnData.sources || []).map((source: Source) => {
-              // Find if we already have this source in our state
-              const existingSource = sources.find(s => s.document_id === source.document_id);
-              
               return {
                 ...source,
-                // Keep existing selection state if available
-                selected: existingSource ? existingSource.selected : true,
+                selected: true,
                 isEditing: false,
                 editName: source.name
               };
             });
 
+            console.log(`Transformed sources with selection:`, sourcesWithSelection);
             setSources(sourcesWithSelection);
-            setDebugInfo(prev => `${prev || ''}\nFound ${sourcesWithSelection.length} sources for project ${projectId} via direct query`);
+            
+            // Immediately notify parent of selected document IDs
+            if (onSourceSelectionChange && sourcesWithSelection.length > 0) {
+              const selectedIds = sourcesWithSelection
+                .filter((source: SourceWithState) => source.selected)
+                .map((source: SourceWithState) => source.document_id);
+              console.log('Initial source selection:', selectedIds);
+              onSourceSelectionChange(selectedIds);
+            } else {
+              console.log('No sources to select or onSourceSelectionChange not provided');
+            }
+            
             setRefreshing(false);
             setIsLoading(false);
             return;
+          } else {
+            console.log(`No sources found in columnData or columnData.sources is null/undefined`);
           }
         }
       } catch (error) {
         console.error('Error in direct Supabase query:', error);
-        setDebugInfo(prev => `${prev || ''}\nError in direct Supabase query: ${error instanceof Error ? error.message : String(error)}`);
       }
       
       // If direct query fails or returns no sources, try using the API
       try {
+        console.log(`Falling back to API getProjectById(${projectId})`);
         // Get the project data which includes the sources field
         const project = await getProjectById(projectId);
-        console.log('Project data from API:', project);
+        console.log(`API response for project ${projectId}:`, project);
         
         if (project && project.sources) {
-          console.log(`Found ${project.sources.length} sources for project ${projectId} via API:`, project.sources);
+          console.log(`Sources from API for project ${projectId}:`, project.sources);
           
           // Transform the sources to include selected state and editing state
           const sourcesWithSelection = (project.sources || []).map((source: Source) => {
-            // Find if we already have this source in our state
-            const existingSource = sources.find(s => s.document_id === source.document_id);
-            
             return {
               ...source,
-              // Keep existing selection state if available
-              selected: existingSource ? existingSource.selected : true,
+              selected: true,
               isEditing: false,
               editName: source.name
             };
           });
 
+          console.log(`Transformed sources with selection from API:`, sourcesWithSelection);
           setSources(sourcesWithSelection);
-          setDebugInfo(prev => `${prev || ''}\nFound ${sourcesWithSelection.length} sources for project ${projectId} via API`);
+          
+          // Immediately notify parent of selected document IDs
+          if (onSourceSelectionChange && sourcesWithSelection.length > 0) {
+            const selectedIds = sourcesWithSelection
+              .filter((source: SourceWithState) => source.selected)
+              .map((source: SourceWithState) => source.document_id);
+            console.log('Initial source selection (from API):', selectedIds);
+            onSourceSelectionChange(selectedIds);
+          } else {
+            console.log('No sources to select from API or onSourceSelectionChange not provided');
+          }
         } else {
-          console.log(`No sources found for project ${projectId} via API`);
-          setDebugInfo(prev => `${prev || ''}\nNo sources found for project ${projectId} via API. Project data: ${JSON.stringify(project)}`);
+          console.log(`No sources found in project response from API`);
           setSources([]);
         }
       } catch (error) {
         console.error('Error fetching project via API:', error);
-        setDebugInfo(prev => `${prev || ''}\nError fetching project via API: ${error instanceof Error ? error.message : String(error)}`);
         setSources([]);
       }
     } catch (error) {
       console.error('Error in fetchSources:', error);
-      setDebugInfo(prev => `${prev || ''}\nError fetching sources: ${error instanceof Error ? error.message : String(error)}`);
       setSources([]);
     } finally {
       setRefreshing(false);
       setIsLoading(false);
     }
-  }, [projectId, sources]);
+  }, [projectId, onSourceSelectionChange]);
 
   // Initial fetch only
   useEffect(() => {
@@ -130,21 +147,17 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ onFileUpload, projectId, re
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       setIsLoading(true);
-      setDebugInfo(`Uploading file: ${file.name}`);
       
       try {
         // Call the onFileUpload function to handle the upload
         onFileUpload(file);
         
         // Wait a moment for the backend to process the file
-        setDebugInfo(prev => `${prev}\nWaiting for backend to process the file...`);
         setTimeout(() => {
-          setDebugInfo(prev => `${prev}\nRefreshing sources...`);
           fetchSources();
         }, 5000); // Give the backend 5 seconds to process the file
       } catch (error) {
         console.error('Error uploading file:', error);
-        setDebugInfo(prev => `${prev}\nError uploading file: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setIsLoading(false);
       }
@@ -159,12 +172,31 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ onFileUpload, projectId, re
     
     // Update allSelected state based on whether all sources are selected
     setAllSelected(updatedSources.every(source => source.selected));
+    
+    // Directly notify parent of selection change
+    if (onSourceSelectionChange) {
+      const selectedIds = updatedSources
+        .filter((source: SourceWithState) => source.selected)
+        .map((source: SourceWithState) => source.document_id);
+      console.log('Source selection toggled:', selectedIds);
+      onSourceSelectionChange(selectedIds);
+    }
   };
 
   const toggleAllSelection = () => {
     const newSelectedState = !allSelected;
     setAllSelected(newSelectedState);
-    setSources(sources.map(source => ({ ...source, selected: newSelectedState })));
+    const updatedSources = sources.map(source => ({ ...source, selected: newSelectedState }));
+    setSources(updatedSources);
+    
+    // Directly notify parent of selection change
+    if (onSourceSelectionChange) {
+      const selectedIds = newSelectedState ? 
+        updatedSources.map((source: SourceWithState) => source.document_id) : 
+        [];
+      console.log('All sources toggled:', selectedIds);
+      onSourceSelectionChange(selectedIds);
+    }
   };
 
   // Start editing a source name
@@ -269,15 +301,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ onFileUpload, projectId, re
           disabled={isLoading}
         />
       </div>
-      
-      {debugInfo && (
-        <div className="p-2 border-b border-gray-200 bg-gray-50">
-          <details>
-            <summary className="text-xs text-gray-500 cursor-pointer">Debug Info</summary>
-            <pre className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{debugInfo}</pre>
-          </details>
-        </div>
-      )}
       
       {sources.length > 0 && (
         <div className="p-2 border-b border-gray-200">

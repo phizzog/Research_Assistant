@@ -24,14 +24,36 @@ export type Project = Database['public']['Tables']['projects']['Row'] & {
 };
 
 // Function to query the backend
-export async function queryBackend(query: string, topK: number = 5): Promise<string> {
+export async function queryBackend(
+  query: string, 
+  topK: number = 5, 
+  projectId?: number, 
+  selectedDocumentIds?: string[],
+  enhancedQueries: boolean = true
+): Promise<string> {
   try {
+    const payload: any = { 
+      query, 
+      top_k: topK,
+      enhanced_queries: enhancedQueries
+    };
+    
+    // Add project_id if provided
+    if (projectId !== undefined) {
+      payload.project_id = projectId;
+    }
+    
+    // Add selected document IDs if provided
+    if (selectedDocumentIds && selectedDocumentIds.length > 0) {
+      payload.selected_document_ids = selectedDocumentIds;
+    }
+    
     const response = await fetch(`${API_BASE_URL}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ query, top_k: topK }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -47,25 +69,60 @@ export async function queryBackend(query: string, topK: number = 5): Promise<str
 }
 
 // Function to send a chat message to the backend
-export async function sendChatMessage(message: string, chatHistory: ChatHistory): Promise<string> {
+export async function sendChatMessage(
+  message: string, 
+  chatHistory: ChatHistory, 
+  projectId?: number, 
+  selectedDocumentIds?: string[],
+  enhancedQueries: boolean = true
+): Promise<string> {
   try {
-    const response = await fetch(`${API_BASE_URL}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        message, 
-        chat_history: chatHistory 
-      }),
-    });
+    // First, get a response from the queryBackend function
+    // This will handle the embedding search logic
+    if (projectId !== undefined) {
+      const queryResponse = await queryBackend(message, 5, projectId, selectedDocumentIds, enhancedQueries);
+      
+      // Add the response to our payload for the chat history
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          message, 
+          chat_history: chatHistory,
+          enhanced_queries: enhancedQueries
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      // Return the query response instead of the chat response
+      // since we're focusing on document search
+      return queryResponse;
+    } else {
+      // If no project ID, use the standard chat endpoint
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          message, 
+          chat_history: chatHistory,
+          enhanced_queries: enhancedQueries
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data: QueryResponse = await response.json();
+      return data.answer;
     }
-
-    const data: QueryResponse = await response.json();
-    return data.answer;
   } catch (error) {
     console.error('Error sending chat message:', error);
     throw error;
@@ -73,17 +130,33 @@ export async function sendChatMessage(message: string, chatHistory: ChatHistory)
 }
 
 // Function to upload a file to the backend
-export async function uploadFile(file: File, metadata?: any): Promise<string> {
+/**
+ * Uploads a file to the backend using the /ingest endpoint with simple_mode=true
+ * This maintains compatibility with the deprecated /upload endpoint
+ * 
+ * @param file - The file to upload
+ * @param metadata - Optional metadata to include with the upload
+ * @param projectId - Optional project ID to associate the file with
+ * @returns A string containing the response message
+ */
+export async function uploadFile(file: File, metadata?: any, projectId?: number): Promise<string> {
   try {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('simple_mode', 'true'); // Use simple_mode to mimic the old /upload behavior
+    
+    // Add project_id if provided
+    if (projectId) {
+      formData.append('project_id', projectId.toString());
+    }
     
     // Add metadata if provided
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
     }
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    // Using the /ingest endpoint instead of /upload as per migration guide
+    const response = await fetch(`${API_BASE_URL}/ingest`, {
       method: 'POST',
       body: formData,
     });

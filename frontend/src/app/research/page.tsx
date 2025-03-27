@@ -39,6 +39,8 @@ export default function ResearchPage() {
   const [showResearchTypeSelector, setShowResearchTypeSelector] = useState(false);
   const [suggestedResearchType, setSuggestedResearchType] = useState('');
   const [aiExplanation, setAiExplanation] = useState('');
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [enhancedQueries, setEnhancedQueries] = useState<boolean>(true);
 
   // Check backend health on component mount
   useEffect(() => {
@@ -133,7 +135,7 @@ ${formattedResponses}
       `.trim();
 
       // Use the backend API instead of direct Gemini call
-      const response = await queryBackend(prompt);
+      const response = await queryBackend(prompt, 5, undefined, undefined, enhancedQueries);
 
       // Extract the research type from the response using more robust pattern matching
       let researchType = '';
@@ -227,6 +229,12 @@ How would you like to proceed with your research?`
     }
   };
 
+  // Handle source selection change from SourcesPanel
+  const handleSourceSelectionChange = (documentIds: string[]) => {
+    console.log('Source selection changed:', documentIds);
+    setSelectedDocumentIds(documentIds || []); // Ensure we always set an array even if undefined is passed
+  };
+
   const handleSendMessage = async (message: string, file?: File) => {
     if (isLoading) return;
     
@@ -249,14 +257,13 @@ How would you like to proceed with your research?`
         try {
           // Create metadata for the file
           const metadata = {
-            project_id: Number(projectId),
             name: file.name,
             filename: file.name,
             upload_date: new Date().toISOString()
           };
           
-          // Upload the file with metadata
-          const uploadResponse = await uploadFile(file, metadata);
+          // Upload the file with metadata and project ID
+          const uploadResponse = await uploadFile(file, metadata, Number(projectId));
           responseContent = uploadResponse;
           
           // No need for setTimeout to refresh sources - we'll use the refreshSources callback
@@ -267,7 +274,15 @@ How would you like to proceed with your research?`
       } else {
         // Regular text message
         try {
-          responseContent = await sendChatMessage(message, updatedMessages);
+          // Use the projectId and selectedDocumentIds when querying
+          console.log('Sending query with selected document IDs:', selectedDocumentIds);
+          responseContent = await sendChatMessage(
+            message, 
+            updatedMessages, 
+            Number(projectId), 
+            selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+            enhancedQueries
+          );
         } catch (error) {
           console.error('Error sending message:', error);
           responseContent = 'Sorry, I encountered an error processing your message. Please try again.';
@@ -412,6 +427,7 @@ How would you like to proceed with your research?`
                   onFileUpload={(file) => handleSendMessage('File uploaded', file)} 
                   projectId={Number(projectId)}
                   refreshSources={refreshSources}
+                  onSourceSelectionChange={handleSourceSelectionChange}
                 />
                 <div className="flex-1 overflow-hidden">
                   <Chat 

@@ -31,6 +31,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, projectId, onUplo
       const formData = new FormData();
       formData.append('file', file);
       
+      // Add simple_mode=true to maintain compatibility with the old /upload endpoint
+      formData.append('simple_mode', 'true');
+      
       // Add project_id if available
       if (projectId) {
         formData.append('project_id', projectId.toString());

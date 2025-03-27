@@ -56,7 +56,7 @@ const ResearchTypeSelector: React.FC<ResearchTypeSelectorProps> = ({
           </div>
           <h3 className="text-lg font-semibold text-black">AI Recommendation</h3>
         </div>
-        <div className="prose prose-sm max-w-none text-black">
+        <div className="prose prose-sm max-w-none text-black max-h-[300px] overflow-y-auto pr-2">
           <div className="text-black">
             <ReactMarkdown
               components={{

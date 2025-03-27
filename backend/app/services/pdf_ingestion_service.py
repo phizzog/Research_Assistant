@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 from app.core.config import logger
 from app.services.pdf_parser import PDFParser
-from app.services.pdf_chunker import PDFChunker
+from app.services.pdf_chunker import PDFChunker, PAGE_CHUNKING
 from app.services.pdf_embedder import PDFEmbedder
 from app.models.schemas import ParserOutput
 from app.core.database import supabase
@@ -63,11 +63,12 @@ class PDFIngestionService:
             logger.info(f"Saved parsed PDF to {parsed_json_path}")
             
             # 2. Chunk the parsed content
-            chunker = PDFChunker(parsed_json_path)
+            chunker = PDFChunker(parsed_json_path, chunking_strategy=PAGE_CHUNKING)
             chunked_json_path = os.path.join(self.output_dir, f"chunked_{document_id}.json")
             chunks = chunker.process(output_file=chunked_json_path)
             
-            logger.info(f"Created {len(chunks)} chunks from PDF")
+            num_chunks = len(chunks)
+            logger.info(f"Created {num_chunks} chunks from PDF")
             
             # 3. Generate embeddings and store in database
             embedder = PDFEmbedder(chunked_json_path)
@@ -92,7 +93,7 @@ class PDFIngestionService:
                     "message": "Failed to embed and store chunks",
                     "document_id": document_id,
                     "project_id": project_id,
-                    "chunks_created": len(chunks),
+                    "chunks_created": num_chunks,
                     "chunks_embedded": 0,
                     "sources_updated": sources_updated
                 }
@@ -102,8 +103,8 @@ class PDFIngestionService:
                 "message": "PDF successfully ingested",
                 "document_id": document_id,
                 "project_id": project_id,
-                "chunks_created": len(chunks),
-                "chunks_embedded": len(chunks),
+                "chunks_created": num_chunks,
+                "chunks_embedded": num_chunks,
                 "sources_updated": sources_updated
             }
             
@@ -139,7 +140,13 @@ class PDFIngestionService:
             response = supabase.table("projects").select("sources").eq("project_id", project_id).execute()
             logger.info(f"Response from select query: {response}")
             
-            if not response.data or len(response.data) == 0:
+            # Check if the response has the expected structure
+            if not hasattr(response, 'data'):
+                logger.error(f"Failed to select sources: unexpected response structure")
+                logger.error(f"Response: {response}")
+                return False
+                
+            if response.data is None or len(response.data) == 0:
                 logger.error(f"Project with ID {project_id} not found")
                 return False
             
@@ -148,10 +155,20 @@ class PDFIngestionService:
             logger.info(f"Current sources for project {project_id}: {current_sources}")
             
             # Create new source object
+            # Get current timestamp for upload_date
+            timestamp_response = supabase.table("projects").select("created_at").execute()
+            
+            # Check if timestamp response has expected structure
+            if not hasattr(timestamp_response, 'data') or not timestamp_response.data:
+                logger.warning("Could not retrieve timestamp, using None for upload_date")
+                upload_date = None
+            else:
+                upload_date = timestamp_response.data[0].get("created_at")
+            
             new_source = {
                 "name": filename,
                 "document_id": document_id,
-                "upload_date": supabase.table("projects").select("created_at").execute().data[0]["created_at"]
+                "upload_date": upload_date
             }
             logger.info(f"Adding new source to project {project_id}: {new_source}")
             
@@ -163,8 +180,14 @@ class PDFIngestionService:
             update_response = supabase.table("projects").update({"sources": current_sources}).eq("project_id", project_id).execute()
             logger.info(f"Response from update query: {update_response}")
             
-            if not update_response.data:
-                logger.error(f"Failed to update sources for project {project_id}: {update_response.error}")
+            # Check if the update response has the expected structure
+            if not hasattr(update_response, 'data'):
+                logger.error(f"Failed to update sources: unexpected response structure")
+                logger.error(f"Response: {update_response}")
+                return False
+                
+            if update_response.data is None:
+                logger.error(f"Failed to update sources for project {project_id}")
                 return False
             
             logger.info(f"Successfully updated sources for project {project_id}. New sources list: {current_sources}")

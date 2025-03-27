@@ -100,7 +100,7 @@ This frontend application communicates with the Research Assistant backend API. 
 
 - `POST /query`: Query the research assistant with a specific question
 - `POST /chat`: Chat with the research assistant, maintaining conversation history
-- `POST /upload`: Upload a PDF file for analysis and storage
+- `POST /ingest`: Upload and process PDF files, with options for simple or detailed ingestion
 - `GET /health`: Health check endpoint
 
 See the backend README for more details on setting up and running the backend.
@@ -157,3 +157,13 @@ This project is licensed under the [MIT License](LICENSE)
 ## 📞 Contact
 
 Project Link: [https://github.com/yourusername/research-assistant](https://github.com/yourusername/research-assistant)
+
+## API Endpoint Migration Complete
+
+The backend API no longer includes the `/upload` endpoint. All file uploads now use the `/ingest` endpoint with the appropriate parameters. The frontend has been updated to reflect this change:
+
+1. The `uploadFile` function in `src/lib/api.ts` uses the `/ingest` endpoint with `simple_mode=true` parameter
+2. The `FileUpload` component in `src/components/FileUpload.tsx` includes the `simple_mode=true` parameter
+3. All direct API calls use the `/ingest` endpoint
+
+This migration ensures proper integration with the backend's PDF processing capabilities and project association features.
