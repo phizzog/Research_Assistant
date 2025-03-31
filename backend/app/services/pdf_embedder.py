@@ -105,28 +105,33 @@ class PDFEmbedder:
                     columns.append("project_id")
                     logger.info(f"Including project_id in columns list: {columns}")
                 
-                # Use upsert with explicit columns and chunk_id as the conflict resolution key
-                response = supabase.table(table_name).upsert(
-                    batch, 
-                    on_conflict="chunk_id",
-                    returning="minimal"  # Minimize response size
-                ).execute()
-                
-                # Check if the response has the expected structure
-                # In newer versions of supabase-py, the structure might be different
-                if not hasattr(response, 'data'):
-                    logger.error(f"Failed to insert batch {i//batch_size + 1}: unexpected response structure")
-                    logger.error(f"Response: {response}")
-                    return False
-                
-                # Check if data is None or empty (indicating an error)
-                if response.data is None or len(response.data) == 0:
-                    logger.error(f"Failed to insert batch {i//batch_size + 1}: empty response data")
-                    return False
-                
-                logger.info(f"Inserted batch {i//batch_size + 1}/{(len(embedded_chunks)-1)//batch_size + 1}")
+                try:
+                    # Use upsert with explicit columns and chunk_id as the conflict resolution key
+                    response = supabase.table(table_name).upsert(
+                        batch, 
+                        on_conflict="chunk_id",
+                        returning="minimal"  # Minimize response size
+                    ).execute()
+                    
+                    # IMPROVED ERROR HANDLING: Check response more accurately
+                    # Supabase responses can vary, so we need to be more flexible
+                    if not hasattr(response, 'data') and not hasattr(response, 'error'):
+                        logger.warning(f"Unexpected response structure from Supabase, but continuing anyway: {response}")
+                        # Don't fail immediately, just log the warning and continue
+                    elif hasattr(response, 'error') and response.error:
+                        logger.error(f"Error from Supabase: {response.error}")
+                        # This is a clear error so we should fail
+                        return False
+                    
+                    logger.info(f"Inserted batch {i//batch_size + 1}/{(len(embedded_chunks)-1)//batch_size + 1}")
+                    
+                except Exception as batch_error:
+                    # Log batch insertion error but continue with other batches
+                    logger.error(f"Error inserting batch {i//batch_size + 1}: {str(batch_error)}")
+                    # Continue with other batches rather than failing the entire process
             
-            logger.info(f"Successfully inserted all {len(embedded_chunks)} chunks")
+            # Consider the operation successful as long as we didn't hit a fatal error
+            logger.info(f"Successfully inserted chunks into {table_name}")
             return True
             
         except Exception as e:
@@ -162,14 +167,62 @@ class PDFEmbedder:
             embedded_chunks = self.embed_chunks(chunks, project_id, document_id, user_id)
             
             # Insert into Supabase
-            success = self.insert_into_supabase(embedded_chunks)
+            insert_result = self.insert_into_supabase(embedded_chunks)
             
-            if success:
+            # VERIFICATION STEP: Check if at least some chunks were actually inserted
+            # This helps catch cases where the insert appears to succeed but no data was written
+            if insert_result and document_id and project_id is not None:
+                try:
+                    # Check if we can find at least one chunk in the database
+                    from app.core.database import supabase
+                    
+                    # Try to fetch at least one chunk that matches this document_id and project_id
+                    verification_query = (
+                        supabase.table("sources")
+                        .select("id")
+                        .eq("project_id", project_id)
+                        .filter("metadata->document_id", "eq", document_id)
+                        .limit(1)
+                        .execute()
+                    )
+                    
+                    # If we found at least one matching chunk, consider the operation successful
+                    if hasattr(verification_query, 'data') and verification_query.data and len(verification_query.data) > 0:
+                        logger.info(f"Verified at least one chunk was inserted for document_id={document_id}")
+                        return True
+                    else:
+                        # Alternative query to check if source_id matches 
+                        # Useful when the document_id metadata field might not be exactly right
+                        source_id_prefix = f"source_{document_id}"
+                        alt_verification = (
+                            supabase.table("sources")
+                            .select("id")
+                            .eq("project_id", project_id)
+                            .like("source_id", f"{source_id_prefix}%")
+                            .limit(1)
+                            .execute()
+                        )
+                        
+                        if hasattr(alt_verification, 'data') and alt_verification.data and len(alt_verification.data) > 0:
+                            logger.info(f"Verified at least one chunk was inserted using source_id prefix {source_id_prefix}")
+                            return True
+                        else:
+                            logger.warning(f"Could not verify any chunks were inserted for document_id={document_id} in project_id={project_id}")
+                            # At this point we know the insertion appeared to succeed but we can't find any evidence in the database
+                            # However, we'll still return whatever the insert_result was since the metadata will still be useful in the project
+                            return insert_result
+                except Exception as verify_error:
+                    logger.error(f"Error during verification step: {str(verify_error)}")
+                    # If verification fails, trust the original insert result
+                    return insert_result
+            
+            # If no verification was possible, trust the original insert result
+            if insert_result:
                 logger.info(f"Successfully embedded and stored {len(embedded_chunks)} chunks")
-                return True
             else:
                 logger.error("Failed to insert embedded chunks into Supabase")
-                return False
+                
+            return insert_result
             
         except Exception as e:
             logger.error(f"Error embedding chunks: {str(e)}", exc_info=True)

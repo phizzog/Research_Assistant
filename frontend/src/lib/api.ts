@@ -14,9 +14,15 @@ interface QueryResponse {
 
 // Extend the Project type to include the sources field
 export interface Source {
-  name: string;
-  document_id: string;
-  upload_date: string;
+  // New field structure
+  title?: string;          // Title field for display
+  display_name?: string;   // Alternative display name
+  name?: string;           // Old field for backward compatibility
+  document_id: string;     // Unique identifier for the document
+  source_id?: string;      // Unique identifier for the source
+  upload_date?: string;    // Old field for timestamp
+  added_at?: string;       // New field for timestamp
+  summary?: string;        // Summary of the document content
 }
 
 export type Project = Database['public']['Tables']['projects']['Row'] & {
@@ -137,9 +143,10 @@ export async function sendChatMessage(
  * @param file - The file to upload
  * @param metadata - Optional metadata to include with the upload
  * @param projectId - Optional project ID to associate the file with
+ * @param customName - Optional custom name to use as the document_id
  * @returns A string containing the response message
  */
-export async function uploadFile(file: File, metadata?: any, projectId?: number): Promise<string> {
+export async function uploadFile(file: File, metadata?: any, projectId?: number, customName?: string): Promise<string> {
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -148,6 +155,11 @@ export async function uploadFile(file: File, metadata?: any, projectId?: number)
     // Add project_id if provided
     if (projectId) {
       formData.append('project_id', projectId.toString());
+    }
+    
+    // Add custom name if provided
+    if (customName) {
+      formData.append('custom_document_name', customName);
     }
     
     // Add metadata if provided

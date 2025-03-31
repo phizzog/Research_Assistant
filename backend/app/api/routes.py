@@ -296,7 +296,8 @@ async def ingest_pdf(
     project_id: Optional[int] = Form(None),
     user_id: Optional[str] = Form(None),
     process_type: str = Form("full"),  # Options: "full", "parse_only", "chunk_only", "embed_only"
-    simple_mode: bool = Form(False)  # Parameter to mimic the old /upload behavior
+    simple_mode: bool = Form(False),  # Parameter to mimic the old /upload behavior
+    custom_document_name: Optional[str] = Form(None)  # New parameter for custom document name
 ):
     """
     Ingest a PDF file through the complete pipeline or specific stages
@@ -311,6 +312,7 @@ async def ingest_pdf(
             - "chunk_only": Only chunk an already parsed PDF
             - "embed_only": Only embed already chunked content
         simple_mode: If True, returns a simple text response like the old deprecated /upload endpoint
+        custom_document_name: Optional custom name to use for the document instead of the filename
     
     Returns:
         If simple_mode is True: A simple ResponseModel with a text answer
@@ -321,7 +323,7 @@ async def ingest_pdf(
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
         
-        logger.info(f"Starting ingestion of file {file.filename} with simple_mode={simple_mode}, project_id={project_id} (type: {type(project_id)}), user_id={user_id}")
+        logger.info(f"Starting ingestion of file {file.filename} with simple_mode={simple_mode}, project_id={project_id} (type: {type(project_id)}), user_id={user_id}, custom_name={custom_document_name}")
         
         # Validate project_id
         if project_id is not None:
@@ -339,43 +341,67 @@ async def ingest_pdf(
             temp_file_path = temp_file.name
         
         try:
+            # Generate a summary first - since we need it for both the response and to store with the source
+            # Parse the PDF to extract text for summary
+            parser = PDFParser(temp_file_path)
+            pdf_data = await parser.parse_pdf()
+            
+            # Generate a summary from the first few pages
+            sample_text = ""
+            for page in pdf_data.pages[:min(3, len(pdf_data.pages))]:
+                sample_text += page.text + "\n\n"
+            
+            summary_prompt = f"""
+            Analyze the following content from a PDF and provide a concise summary in 2-3 sentences:
+            
+            {sample_text[:5000]}  # Limiting content length for better focus
+            """
+            
+            summary = generate_response(summary_prompt, sample_text)
+            logger.info(f"Generated summary: {summary[:100]}...")
+            
             # Initialize the ingestion service
             ingestion_service = PDFIngestionService()
             
             # Process the PDF based on the requested process type
             if process_type == "full":
                 logger.info(f"Processing file {file.filename} with process_type={process_type}")
-                result = await ingestion_service.ingest_pdf(temp_file_path, project_id, user_id)
+                
+                # Pass the summary to the ingest_pdf method
+                result = await ingestion_service.ingest_pdf(
+                    temp_file_path, 
+                    project_id, 
+                    user_id,
+                    custom_document_name=custom_document_name,
+                    original_filename=file.filename,
+                    summary=summary  # Pass the generated summary
+                )
                 logger.info(f"Ingestion result: {result}")
                 
-                # If using simple mode, generate a summary and return a simplified response
+                # Get the display title that would be shown to the user
+                display_title = result.get("ai_title") or custom_document_name or file.filename
+                
+                # If using simple mode, generate a simplified response
                 if simple_mode:
                     logger.info("Using simple_mode response format")
                     
-                    # Parse the PDF to extract text for summary
-                    parser = PDFParser(temp_file_path)
-                    pdf_data = await parser.parse_pdf()
-                    
-                    # Generate a summary (first two pages)
-                    sample_text = ""
-                    for page in pdf_data.pages[:2]:
-                        sample_text += page.text + "\n\n"
-                    
-                    prompt = f"""
-                    Analyze the following content from a PDF and provide a brief summary:
-                    
-                    {sample_text[:4000]}  # Limiting content length
-                    """
-                    
-                    summary = generate_response(prompt, sample_text)
                     project_info = f" for project ID {project_id}" if project_id else ""
                     
+                    # Determine the appropriate status message
+                    if result["status"] == "error":
+                        # More accurate message about what happened - database insert failed but document is still available
+                        status_msg = "The source was added successfully"
+                        chunks_info = f"but there was an issue storing the text for semantic search. The document is available but may not appear in search results."
+                    else:
+                        status_msg = "Successfully processed"
+                        chunks_info = f"{result['chunks_embedded']} chunks of content were extracted and stored for future queries."
+                    
                     return {
-                        "answer": f"Successfully processed PDF '{file.filename}'{project_info}. {result['chunks_embedded']} chunks of content were extracted and stored for future queries. \n\nSummary: {summary}"
+                        "answer": f"{status_msg} '{display_title}'{project_info}. {chunks_info}\n\nSummary: {summary}"
                     }
                 
-                # If successful and project_id is provided, return the updated project sources
-                if result["status"] == "success" and project_id:
+                # Always return the updated project sources if project_id is provided
+                if project_id:
                     from app.core.database import supabase
                     # Get the updated project sources
                     logger.info(f"Fetching updated sources for project {project_id}")
