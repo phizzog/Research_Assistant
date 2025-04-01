@@ -24,4 +24,8 @@ tiktoken==0.6.0
 # For embedding
 nomic==2.0.14
 # For testing
-reportlab==4.1.0 
+reportlab==4.1.0
+# For API requests
+requests>=2.28.0
+# For Tavily integration
+tavily-python 

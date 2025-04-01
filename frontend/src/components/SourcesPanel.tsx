@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FiPlus, FiFile, FiCheck, FiEdit2, FiSave, FiRefreshCw, FiX, FiInfo, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiFile, FiCheck, FiEdit2, FiSave, FiRefreshCw, FiX, FiInfo, FiTrash2, FiSearch, FiExternalLink } from 'react-icons/fi';
 import supabase from '@/lib/supabase';
 import { getProjectById, Source, uploadFile } from '@/lib/api';
 
@@ -25,6 +25,21 @@ interface SourcesPanelProps {
   onSourceSelectionChange?: (selectedDocumentIds: string[]) => void;
 }
 
+// Knowledge gap interface
+interface KnowledgeGap {
+  gap_description: string;
+  importance: number;
+  suggested_queries: string[];
+}
+
+// Search result interface
+interface SearchResult {
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+}
+
 const SourcesPanel: React.FC<SourcesPanelProps> = ({ 
   onFileUpload, 
   projectId, 
@@ -36,6 +51,17 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [suggestingSources, setSuggestingSources] = useState(false);
+  
+  // Modal states
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const [knowledgeGaps, setKnowledgeGaps] = useState<KnowledgeGap[]>([]);
+  const [selectedGap, setSelectedGap] = useState<KnowledgeGap | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [activeStep, setActiveStep] = useState<'gaps' | 'results'>('gaps');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourcesLoaded = useRef(false);
   
@@ -496,6 +522,138 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
     }
   };
 
+  // Function to open the source suggestion modal
+  const openSourceSuggestionModal = () => {
+    setShowSourceModal(true);
+    setKnowledgeGaps([]);
+    setSelectedGap(null);
+    setSearchResults([]);
+    setActiveStep('gaps');
+  };
+
+  // Function to identify knowledge gaps
+  const identifyKnowledgeGaps = async () => {
+    if (!projectId) return;
+    
+    setAnalysisLoading(true);
+    
+    try {
+      // Fetch project data using getProjectById from API instead of direct Supabase query
+      let projectTitle = "";
+      let projectGoals = "";
+      let projectSources = [];
+      
+      try {
+        // First try using getProjectById from the API
+        const project = await getProjectById(projectId);
+        if (project) {
+          // Use the correct property names from the Project type
+          projectTitle = project.project_name || "";
+          projectGoals = project.description || "";
+          projectSources = project.sources || [];
+          console.log("Retrieved project data from API:", { projectTitle, projectGoals, sourcesCount: projectSources.length });
+        }
+      } catch (apiError) {
+        console.log("Error retrieving project from API, trying Supabase directly:", apiError);
+        
+        // Fall back to direct Supabase query
+        const { data: projectData, error: projectError } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('project_id', projectId)
+          .single();
+          
+        if (projectError) {
+          console.error('Error fetching project data:', projectError);
+          throw new Error("Could not retrieve project data");
+        }
+        
+        if (projectData) {
+          projectTitle = projectData.project_name || "";
+          projectGoals = projectData.description || "";
+          projectSources = projectData.sources || [];
+          console.log("Retrieved project data from Supabase:", { projectTitle, projectGoals, sourcesCount: projectSources.length });
+        }
+      }
+      
+      if (!projectTitle) {
+        throw new Error("Project title not found");
+      }
+      
+      // Call the backend API endpoint that identifies knowledge gaps
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/identify-gaps`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          project_id: projectId,
+          project: {
+            title: projectTitle,
+            goals: projectGoals
+          },
+          sources: projectSources || []
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Knowledge gaps result:', result);
+      
+      // Set the knowledge gaps
+      setKnowledgeGaps(result.identified_gaps || []);
+      
+    } catch (error) {
+      console.error('Error identifying knowledge gaps:', error);
+      alert('Error identifying knowledge gaps. Please try again later.');
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  // Function to search for sources based on selected gap
+  const searchForSources = async (gap: KnowledgeGap) => {
+    if (!projectId || !gap) return;
+    
+    setSelectedGap(gap);
+    setSearchLoading(true);
+    setActiveStep('results');
+    setSearchResults([]);
+    
+    try {
+      // Call the backend API endpoint to search based on the selected gap
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/search-for-gap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          project_id: projectId,
+          gap: gap
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Search results:', result);
+      
+      // Set the search results
+      setSearchResults(result.results || []);
+      
+    } catch (error) {
+      console.error('Error searching for sources:', error);
+      alert('Error searching for sources. Please try again later.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white border-r border-gray-200 w-72 min-w-72 max-w-72">
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-white flex justify-between items-center">
@@ -529,6 +687,16 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           onChange={handleFileSelect}
           disabled={isLoading}
         />
+        
+        {/* Suggest More Sources Button */}
+        <button 
+          className="w-full flex items-center justify-center gap-2 p-2 mt-2 text-indigo-700 bg-indigo-100 rounded-lg hover:bg-indigo-200 transition-colors disabled:opacity-50"
+          onClick={openSourceSuggestionModal}
+          disabled={suggestingSources || sources.length === 0 || isLoading}
+        >
+          <FiSearch className="w-4 h-4" />
+          <span>Find knowledge gaps</span>
+        </button>
         
         {/* Description of how source titles are generated */}
         <p className="mt-2 text-xs text-gray-500 px-1">
@@ -685,6 +853,155 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           </div>
         )}
       </div>
+      
+      {/* Knowledge Gap Modal */}
+      {showSourceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-indigo-900">
+                {activeStep === 'gaps' ? 'Knowledge Gaps' : 'Search Results'}
+              </h2>
+              <button 
+                onClick={() => setShowSourceModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4">
+              {activeStep === 'gaps' ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-gray-700 mb-2">
+                      Identify knowledge gaps in your project and find sources to fill them.
+                    </p>
+                    <button 
+                      className="flex items-center justify-center gap-2 p-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                      onClick={identifyKnowledgeGaps}
+                      disabled={analysisLoading}
+                    >
+                      {analysisLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></div>
+                          <span>Analyzing project...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FiSearch className="w-4 h-4" />
+                          <span>Find knowledge gaps</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  
+                  {knowledgeGaps.length > 0 ? (
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-700 mb-2">Identified Knowledge Gaps:</h3>
+                      <div className="space-y-3">
+                        {knowledgeGaps.map((gap, index) => (
+                          <div 
+                            key={index}
+                            className="p-3 border border-gray-200 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors"
+                            onClick={() => searchForSources(gap)}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full flex-shrink-0 mt-0.5">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-gray-800">{gap.gap_description}</h4>
+                                <div className="mt-1 text-sm text-gray-600">
+                                  <span className="inline-block bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full text-xs mr-2">
+                                    Importance: {gap.importance}/10
+                                  </span>
+                                  <span className="text-xs">Click to search for sources</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : !analysisLoading && (
+                    <div className="text-center text-gray-500 py-8">
+                      Click "Find knowledge gaps" to analyze your project
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center">
+                    <button 
+                      className="mr-2 p-1 text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded"
+                      onClick={() => setActiveStep('gaps')}
+                    >
+                      <FiX className="w-4 h-4" />
+                    </button>
+                    <h3 className="text-md font-medium text-gray-700">
+                      {selectedGap?.gap_description}
+                    </h3>
+                  </div>
+                  
+                  {searchLoading ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="w-8 h-8 border-t-2 border-b-2 border-indigo-500 rounded-full animate-spin mb-2"></div>
+                      <p className="text-gray-600">Searching for sources...</p>
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="space-y-4">
+                      {searchResults.map((result, index) => (
+                        <div key={index} className="p-3 border border-gray-200 rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-medium text-gray-800 mb-1">{result.title}</h4>
+                            <a 
+                              href={result.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-800 p-1"
+                              title="Open in new tab"
+                            >
+                              <FiExternalLink className="w-4 h-4" />
+                            </a>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{result.content}</p>
+                          <div className="flex items-center text-xs text-gray-500">
+                            <span className="inline-block bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full mr-2">
+                              Relevance: {Math.round(result.score * 100)}%
+                            </span>
+                            <a 
+                              href={result.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:underline"
+                            >
+                              {result.url.substring(0, 50)}{result.url.length > 50 ? '...' : ''}
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 py-8">
+                      No results found. Try a different knowledge gap.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200">
+              <button
+                className="w-full p-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                onClick={() => setShowSourceModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

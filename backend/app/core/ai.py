@@ -285,4 +285,21 @@ def calculate_similarity(vector1: List[float], vector2: List[float]) -> float:
         return dot_product / (norm1 * norm2)
     except Exception as e:
         logger.error(f"Error calculating similarity: {str(e)}", exc_info=True)
-        return 0.0 
+        return 0.0
+
+async def gemini_generate_content(prompt: str) -> str:
+    """
+    Generate content using Gemini model asynchronously
+    
+    Args:
+        prompt: The prompt to send to Gemini
+        
+    Returns:
+        str: The generated text response
+    """
+    try:
+        response = gemini_model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        logger.error(f"Gemini API error in async content generation: {e}")
+        return f"Error generating content: {str(e)}" 

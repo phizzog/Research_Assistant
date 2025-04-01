@@ -3,7 +3,7 @@ import tempfile
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Query, Depends
 from fastapi.responses import JSONResponse
 from typing import Optional, List, Union
-from app.models.schemas import QueryRequest, MessageRequest, ResponseModel, PDFIngestionResponse, ChatWithProjectRequest
+from app.models.schemas import QueryRequest, MessageRequest, ResponseModel, PDFIngestionResponse, ChatWithProjectRequest, SourceSuggestionRequest, SourceSuggestionResponse, GapIdentification, GapAnalysisResponse, GapSearchRequest, GapSearchResponse
 from app.services.pdf_parser import PDFParser
 from app.services.document_service import (
     store_pdf_content, 
@@ -15,6 +15,11 @@ from app.services.pdf_ingestion_service import PDFIngestionService
 from app.core.ai import generate_response
 from app.core.config import logger
 from typing import Optional, List
+import requests
+import json
+import random
+from datetime import datetime
+from tavily import TavilyClient
 
 router = APIRouter()
 
@@ -604,4 +609,344 @@ async def chat_with_project(request: ChatWithProjectRequest):
         return {"output": response}
     except Exception as e:
         logger.error(f"Error in chat_with_project: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error in chat_with_project: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error in chat_with_project: {str(e)}")
+
+@router.post("/suggest-sources", response_model=SourceSuggestionResponse)
+async def suggest_sources(request: SourceSuggestionRequest):
+    """
+    Analyze project data, identify knowledge gaps, and suggest additional sources
+    using Tavily search API.
+    """
+    from app.core.database import supabase
+    import os
+    import json
+    import random
+    from datetime import datetime
+    from tavily import TavilyClient
+
+    try:
+        # Get the Tavily API key from environment variables
+        tavily_api_key = os.getenv("TAVILY_API_KEY")
+        if not tavily_api_key:
+            raise HTTPException(status_code=500, detail="Tavily API key not configured")
+        
+        # Initialize Tavily client with the official SDK
+        tavily_client = TavilyClient(api_key=tavily_api_key)
+        
+        # Initialize Gemini AI for gap analysis
+        from app.core.ai import gemini_generate_content
+        
+        # 1. Create Gemini prompt to identify gaps based on existing sources
+        prompt = f"""
+        # Project Analysis Task
+        
+        ## Project Information
+        Title: {request.project.title}
+        Goals: {request.project.goals}
+        
+        ## Current Sources and Summaries
+        {json.dumps([
+            {
+                "name": source.get("title") or source.get("display_name") or source.get("name", "Untitled"),
+                "summary": source.get("summary", "No summary available")
+            } for source in request.sources
+        ], indent=2)}
+        
+        ## Your Task
+        1. Analyze the project title, goals, and existing source summaries.
+        2. Identify 3-5 specific knowledge gaps or areas where the current sources lack sufficient information to fully support the project goals.
+        3. For each gap:
+           - Provide a clear description of the missing information
+           - Suggest 2-3 specific search queries that would help find sources to fill this gap
+           - Rate the importance of filling this gap on a scale of 1-10
+        
+        ## Output Format
+        Return a JSON object with this structure:
+        {{
+          "identified_gaps": [
+            {{
+              "gap_description": "Description of the knowledge gap",
+              "importance": 8,
+              "suggested_queries": ["query 1", "query 2", "query 3"]
+            }}
+          ]
+        }}
+        """
+        
+        # 2. Process with Gemini
+        logger.info(f"Sending gap analysis prompt to Gemini for project {request.project_id}")
+        response = await gemini_generate_content(prompt)
+        
+        # Extract JSON from the response
+        try:
+            # Try to parse the response as JSON directly
+            gaps_data = json.loads(response)
+        except json.JSONDecodeError:
+            # If that fails, try to extract JSON from markdown
+            import re
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response) or re.search(r'{[\s\S]*}', response)
+            if json_match:
+                gaps_data = json.loads(json_match.group(1).strip() if json_match.group(1) else json_match.group(0))
+            else:
+                raise HTTPException(status_code=500, detail="Failed to parse JSON from Gemini response")
+        
+        identified_gaps = gaps_data.get("identified_gaps", [])
+        logger.info(f"Identified {len(identified_gaps)} knowledge gaps")
+        
+        # 3. Sort gaps by importance and take top 3
+        sorted_gaps = sorted(identified_gaps, key=lambda x: x.get("importance", 0), reverse=True)
+        top_gaps = sorted_gaps[:min(3, len(sorted_gaps))]
+        
+        # 4. Perform Tavily searches
+        search_results = []
+        for gap in top_gaps:
+            # Take the first 2 queries for each gap
+            queries = gap.get("suggested_queries", [])[:2]
+            
+            for query in queries:
+                try:
+                    # Perform search using the Tavily Python SDK
+                    search_response = tavily_client.search(
+                        query=query,
+                        search_depth="advanced",
+                        max_results=5
+                    )
+                    
+                    search_results.append({
+                        "gap_description": gap.get("gap_description"),
+                        "query": query,
+                        "results": search_response.get("results", [])
+                    })
+                    
+                    logger.info(f"Completed Tavily search for query: {query}")
+                except Exception as e:
+                    logger.error(f"Error searching with Tavily for query '{query}': {e}")
+        
+        # 5. Process search results
+        processed_sources = []
+        
+        for search_result in search_results:
+            for result in search_result.get("results", []):
+                # Generate unique IDs
+                timestamp = int(datetime.now().timestamp() * 1000)
+                random_suffix = random.randint(1000, 9999)
+                source_id = f"tavily_{timestamp}_{random_suffix}"
+                document_id = f"tavily_doc_{timestamp}_{random_suffix}"
+                
+                # Create source object
+                source = {
+                    "title": result.get("title"),
+                    "display_name": result.get("title"),
+                    "name": result.get("title"),
+                    "document_id": document_id,
+                    "source_id": source_id,
+                    "added_at": datetime.now().isoformat(),
+                    "summary": result.get("content"),
+                    "ai_generated": True,
+                    "project_id": request.project_id,
+                    "url": result.get("url"),
+                    "gap_filled": search_result.get("gap_description")
+                }
+                
+                processed_sources.append(source)
+        
+        # 6. Generate better summaries with Gemini
+        for source in processed_sources:
+            summary_prompt = f"""
+            Generate a concise summary (max 200 words) of the following content that captures the key points:
+            
+            Title: {source["title"]}
+            Content: {source["summary"]}
+            
+            Summary:
+            """
+            
+            try:
+                summary_response = await gemini_generate_content(summary_prompt)
+                source["summary"] = summary_response.strip()
+                logger.info(f"Generated summary for source: {source['title']}")
+            except Exception as e:
+                logger.error(f"Error generating summary: {e}")
+                # Keep the original content as summary if summary generation fails
+        
+        # 7. Update the project with new sources
+        if processed_sources:
+            try:
+                # Get current project sources
+                project_response = supabase.table("projects").select("sources").eq("project_id", request.project_id).execute()
+                
+                if project_response.data and len(project_response.data) > 0:
+                    # Add new sources to existing ones
+                    current_sources = project_response.data[0].get("sources", []) or []
+                    updated_sources = current_sources + processed_sources
+                    
+                    # Update project
+                    update_response = supabase.table("projects").update({"sources": updated_sources}).eq("project_id", request.project_id).execute()
+                    
+                    logger.info(f"Added {len(processed_sources)} new sources to project {request.project_id}")
+                else:
+                    logger.error(f"Could not find project {request.project_id}")
+            except Exception as e:
+                logger.error(f"Error updating project sources: {e}")
+                raise HTTPException(status_code=500, detail=f"Error updating project sources: {str(e)}")
+        
+        # 8. Return response
+        return {
+            "identified_gaps": identified_gaps,
+            "new_sources_count": len(processed_sources),
+            "new_sources": processed_sources
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in suggest_sources: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error suggesting sources: {str(e)}")
+
+@router.post("/identify-gaps", response_model=GapAnalysisResponse)
+async def identify_gaps(request: SourceSuggestionRequest):
+    """
+    Analyze project data and identify knowledge gaps without performing searches.
+    """
+    from app.core.database import supabase
+    import os
+    import json
+    import random
+    from datetime import datetime
+
+    try:
+        # Initialize Gemini AI for gap analysis
+        from app.core.ai import gemini_generate_content
+        
+        # Create Gemini prompt to identify gaps based on existing sources
+        prompt = f"""
+        # Project Analysis Task
+        
+        ## Project Information
+        Title: {request.project.title}
+        Goals: {request.project.goals}
+        
+        ## Current Sources and Summaries
+        {json.dumps([
+            {
+                "name": source.get("title") or source.get("display_name") or source.get("name", "Untitled"),
+                "summary": source.get("summary", "No summary available")
+            } for source in request.sources
+        ], indent=2)}
+        
+        ## Your Task
+        1. Analyze the project title, goals, and existing source summaries.
+        2. Identify 3-5 specific knowledge gaps or areas where the current sources lack sufficient information to fully support the project goals.
+        3. For each gap:
+           - Provide a clear description of the missing information
+           - Suggest 2-3 specific search queries that would help find sources to fill this gap
+           - Rate the importance of filling this gap on a scale of 1-10
+        
+        ## Output Format
+        Return a JSON object with this structure:
+        {{
+          "identified_gaps": [
+            {{
+              "gap_description": "Description of the knowledge gap",
+              "importance": 8,
+              "suggested_queries": ["query 1", "query 2", "query 3"]
+            }}
+          ]
+        }}
+        """
+        
+        # Process with Gemini
+        logger.info(f"Sending gap analysis prompt to Gemini for project {request.project_id}")
+        response = await gemini_generate_content(prompt)
+        
+        # Extract JSON from the response
+        try:
+            # Try to parse the response as JSON directly
+            gaps_data = json.loads(response)
+        except json.JSONDecodeError:
+            # If that fails, try to extract JSON from markdown
+            import re
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response) or re.search(r'{[\s\S]*}', response)
+            if json_match:
+                gaps_data = json.loads(json_match.group(1).strip() if json_match.group(1) else json_match.group(0))
+            else:
+                raise HTTPException(status_code=500, detail="Failed to parse JSON from Gemini response")
+        
+        identified_gaps = gaps_data.get("identified_gaps", [])
+        logger.info(f"Identified {len(identified_gaps)} knowledge gaps")
+        
+        # Sort gaps by importance
+        sorted_gaps = sorted(identified_gaps, key=lambda x: x.get("importance", 0), reverse=True)
+        
+        # Return just the identified gaps
+        return {
+            "identified_gaps": sorted_gaps
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in identify_gaps: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error identifying knowledge gaps: {str(e)}")
+
+@router.post("/search-for-gap", response_model=GapSearchResponse)
+async def search_for_gap(request: GapSearchRequest):
+    """
+    Search for sources to fill a specific knowledge gap using Tavily search.
+    """
+    import requests
+    import os
+    
+    try:
+        # Get the Tavily API key from environment variables
+        tavily_api_key = os.getenv("TAVILY_API_KEY")
+        if not tavily_api_key:
+            raise HTTPException(status_code=500, detail="Tavily API key not configured")
+        
+        # Get the gap information
+        gap = request.gap
+        
+        # Take the first 2 queries from the gap
+        queries = gap.suggested_queries[:min(2, len(gap.suggested_queries))]
+        if not queries:
+            raise HTTPException(status_code=400, detail="No search queries provided in the knowledge gap")
+        
+        # Initialize results list
+        results = []
+        
+        # Perform Tavily searches for each query
+        for query in queries:
+            try:
+                # Perform search using Tavily API directly
+                tavily_response = requests.post(
+                    "https://api.tavily.com/search",
+                    headers={
+                        "Authorization": f"Bearer {tavily_api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "query": query,
+                        "search_depth": "advanced",
+                        "max_results": 5
+                    }
+                )
+                
+                # Check for successful response
+                tavily_response.raise_for_status()
+                search_response = tavily_response.json()
+                
+                # Add results from this query
+                query_results = search_response.get("results", [])
+                for result in query_results:
+                    # Check if this URL is already in the results (avoid duplicates)
+                    if not any(r.get("url") == result.get("url") for r in results):
+                        results.append(result)
+                
+                logger.info(f"Completed Tavily search for query: {query}")
+            except Exception as e:
+                logger.error(f"Error searching with Tavily for query '{query}': {e}")
+        
+        # Return the combined results
+        return {
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in search_for_gap: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error searching for sources: {str(e)}") 

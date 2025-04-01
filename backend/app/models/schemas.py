@@ -85,4 +85,55 @@ class Source(BaseModel):
 class ProjectSource(BaseModel):
     """Model for project source reference"""
     name: str
-    document_id: str 
+    document_id: str
+
+# Tavily Source Suggestion Models
+class ProjectInfo(BaseModel):
+    """Model for project information"""
+    title: str
+    goals: str
+
+class SourceSuggestionRequest(BaseModel):
+    """Request model for suggesting additional sources"""
+    project_id: int
+    project: ProjectInfo
+    sources: List[Dict[str, Any]]
+
+class GapIdentification(BaseModel):
+    """Model for a knowledge gap"""
+    gap_description: str
+    importance: int
+    suggested_queries: List[str]
+
+class SearchResult(BaseModel):
+    """Model for a search result from Tavily"""
+    title: str
+    url: str
+    content: str
+    score: float
+
+class SearchQueryResult(BaseModel):
+    """Model for results of a search query"""
+    gap_description: str
+    query: str
+    results: List[SearchResult]
+
+class SourceSuggestionResponse(BaseModel):
+    """Response model for suggest-sources endpoint"""
+    identified_gaps: List[GapIdentification]
+    new_sources_count: int
+    new_sources: List[Dict[str, Any]]
+
+# New models for the revised workflow
+class GapAnalysisResponse(BaseModel):
+    """Response model for identify-gaps endpoint"""
+    identified_gaps: List[GapIdentification]
+
+class GapSearchRequest(BaseModel):
+    """Request model for search-for-gap endpoint"""
+    project_id: int
+    gap: GapIdentification
+
+class GapSearchResponse(BaseModel):
+    """Response model for search-for-gap endpoint"""
+    results: List[SearchResult] 
