@@ -2,6 +2,8 @@
 
 A comprehensive platform for academic research workflow management, powered by AI and built on a modern tech stack. This system guides researchers through the structured process outlined in "Research Design: Qualitative, Quantitative, and Mixed Methods Approaches" by John W. Creswell and J. David Creswell.
 
+**This project was developed for the Software Engineering class at the University of Findlay.**
+
 ![Research Assistant Platform](https://example.com/research-assistant-screenshot.png)
 
 ## 🌟 Overview
@@ -283,6 +285,12 @@ We welcome contributions to the Research Assistant platform:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## 👥 Contributors
+
+- Kenny Snyder
+- Patrick Rockow
+- Elina Ivanova
+- Simon Derstine
 
 ## 🙏 Acknowledgements
 
