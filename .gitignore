@@ -28,6 +28,8 @@ ENV/
 .venv
 env.bak/
 venv.bak/
+*/venv/
+*/.env
 
 # IDE specific files
 .idea/
@@ -68,6 +70,20 @@ coverage.xml
 *.key
 config.ini
 secrets.json
+.env*
+*/.env*
+!*.env.example
+!*/.env.example
+*/config/secrets*
+credentials.json
+token.json
+service-account*
+*_key.json
+backend/.env
+frontend/.env*
+!frontend/.env.example
+Data_Curator/.env
+!Data_Curator/.env.example
 
 # Large data files
 *.csv
@@ -88,4 +104,29 @@ _templates/
 *.bak
 *.tmp
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Next.js
+.next/
+out/
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Project instructions and internal docs
+Instructions/
+*.cursorrules
+*instructions.md
+frontend/instructions.md
+
+# Archive and large data directories
+archive/ 
