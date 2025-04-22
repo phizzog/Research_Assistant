@@ -1,7 +1,7 @@
 ollama:
   endpoints:
-    - "http://192.168.10.3:11436"  # GPU 1
-    - "http://192.168.10.3:11435"  # GPU 2
+    - "insert your ollama base url here"  # GPU 1
+    - "insert your ollama base url here"  # GPU 2
 
   model: "llama3.1:8b"
 retries:

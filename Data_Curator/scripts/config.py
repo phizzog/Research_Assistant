@@ -7,7 +7,7 @@ from pathlib import Path
 load_dotenv()
 
 # Ollama configuration
-OLLAMA_BASE_URL = 'http://192.168.10.3:11436'
+OLLAMA_BASE_URL = 'Your Ollama Base URL'
 
 @dataclass
 class ChunkingConfig:

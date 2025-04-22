@@ -1,157 +1,294 @@
 # Research Assistant
 
-An AI-powered research assistant that helps users with research methodology, using RAG (Retrieval-Augmented Generation) with Supabase for vector storage and Gemini for text generation.
+A comprehensive platform for academic research workflow management, powered by AI and built on a modern tech stack. This system guides researchers through the structured process outlined in "Research Design: Qualitative, Quantitative, and Mixed Methods Approaches" by John W. Creswell and J. David Creswell.
 
-## Project Structure
+![Research Assistant Platform](https://example.com/research-assistant-screenshot.png)
 
-- `frontend/`: Next.js frontend application
-- `backend/`: FastAPI backend application with modular architecture
-  - `app/`: Main application package
-    - `api/`: API routes and endpoints
-    - `core/`: Core functionality (config, database, AI)
-    - `models/`: Data models and schemas
-    - `services/`: Business logic and services
-    - `utils/`: Utility functions
-  - `main.py`: Application entry point
-- `Data_Curator/`: Tools for processing and uploading research data
+## 🌟 Overview
 
-## Setup
+The Research Assistant serves as an intelligent companion for academic researchers, providing:
 
-### Backend Setup
+- **Structured Research Guidance**: A 10-step workflow based on established research methodology
+- **AI-Powered Assistance**: Context-aware AI that understands research design principles
+- **Document Management**: PDF processing, semantic search, and document organization
+- **Research Methodology Support**: Specialized guidance for qualitative, quantitative, and mixed methods approaches
+- **Collaborative Environment**: Project-based workflow with history tracking and context retention
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
+## 🏛️ System Architecture
 
-2. Create a virtual environment and activate it:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+The system consists of two main components:
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Frontend (Next.js)
 
-4. Create a `.env` file based on `.env.example` and fill in your credentials:
-   ```
-   SUPABASE_URL=https://your-project-id.supabase.co
-   SUPABASE_KEY=your-service-role-key
-   GEMINI_API_KEY=your-gemini-api-key
-   ```
+A modern, responsive web application built with:
+- Next.js 15 and React 19
+- Tailwind CSS for styling
+- TypeScript for type safety
+- Supabase Auth for authentication
+- Client-side integration with Gemini AI
 
-5. Make sure your Supabase database has the required schema and functions as described in the Supabase Setup section.
+### Backend (FastAPI)
 
-6. Start the backend server:
-   ```bash
-   python -m main
-   ```
+A robust API service built with:
+- FastAPI for high-performance API endpoints
+- Supabase for database and vector storage
+- Google Gemini API for AI reasoning
+- Nomic Embed API for document embeddings
+- PDF processing pipeline for document ingestion
 
-### Frontend Setup
+### System Interaction Diagram
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
+```
+┌─────────────┐      HTTP/JSON      ┌─────────────┐
+│             │◄───────────────────►│             │
+│   Frontend  │                     │   Backend   │
+│  (Next.js)  │                     │  (FastAPI)  │
+│             │                     │             │
+└─────────────┘                     └─────────────┘
+       ▲                                   ▲
+       │                                   │
+       ▼                                   ▼
+┌─────────────┐                     ┌─────────────┐
+│  Supabase   │◄───────────────────►│ Google AI   │
+│  (Auth/DB)  │                     │ (Gemini)    │
+└─────────────┘                     └─────────────┘
+                                           ▲
+                                           │
+                                           ▼
+                                    ┌─────────────┐
+                                    │ Nomic Embed │
+                                    │    API      │
+                                    └─────────────┘
+```
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+## ✨ Key Features
 
-3. Create a `.env.local` file based on `.env.local.example` and fill in your credentials:
-   ```
-   NEXT_PUBLIC_GEMINI_API_KEY=your-gemini-api-key
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-   ```
+### 1. Research Project Management
 
-4. Start the frontend development server:
-   ```bash
-   npm run dev
-   ```
+- Create and manage multiple research projects
+- Track progress through research stages
+- Store project metadata and research parameters
 
-5. Open your browser and navigate to `http://localhost:3000`
+### 2. Intelligent Research Methodology Guidance
 
-## Supabase Setup
+- AI-driven selection of appropriate research methodologies
+- Tailored guidance based on research questions and goals
+- Step-by-step walkthrough of research design process
 
-1. Create a new Supabase project
-2. Enable the pgvector extension:
-   ```sql
-   CREATE EXTENSION vector;
-   ```
+### 3. Document Management
 
-3. Create the chunks table:
-   ```sql
-   CREATE TABLE chunks (
-     chunk_id TEXT PRIMARY KEY,
-     raw_text TEXT,
-     contextualized_text TEXT,
-     metadata JSONB,
-     embedding VECTOR(768)
-   );
-   ```
+- Upload and process research papers and documents
+- Automatic text extraction and semantic chunking
+- Vector embeddings for semantic search
+- Document selection for contextual queries
 
-4. Create the match_chunks function:
-   ```sql
-   CREATE OR REPLACE FUNCTION match_chunks(query_embedding VECTOR(768), match_count INT)
-   RETURNS TABLE (
-       chunk_id TEXT,
-       raw_text TEXT,
-       contextualized_text TEXT,
-       metadata JSONB,
-       similarity FLOAT
-   ) AS $$
-   BEGIN
-       RETURN QUERY
-       SELECT chunks.chunk_id, chunks.raw_text, chunks.contextualized_text, chunks.metadata,
-              1 - (chunks.embedding <=> query_embedding) AS similarity
-       FROM chunks
-       ORDER BY chunks.embedding <=> query_embedding
-       LIMIT match_count;
-   END;
-   $$ LANGUAGE plpgsql;
-   ```
+### 4. AI Research Assistant
 
-## Backend Architecture
+- Context-aware conversations with Gemini AI
+- Document-grounded responses to research questions
+- Markdown formatting with code syntax highlighting
+- Session persistence for continued conversations
 
-The backend follows a modular architecture for better maintainability and separation of concerns:
+### 5. RAG Implementation
 
-- **API Layer** (`app/api/`): Handles HTTP requests and responses
-- **Core Layer** (`app/core/`): Contains core functionality like configuration, database connections, and AI services
-- **Models Layer** (`app/models/`): Defines data models and schemas using Pydantic
-- **Services Layer** (`app/services/`): Implements business logic and services
-- **Utils Layer** (`app/utils/`): Contains utility functions and helpers
+- Retrieval-Augmented Generation for research-specific knowledge
+- Pre-processed embeddings of research methodology textbook
+- Dynamic retrieval of relevant context for each query
+- Project-specific context inclusion
 
-This modular structure makes the codebase easier to maintain, test, and extend with new features.
+## 🚀 Getting Started
 
-## Features
+### Prerequisites
 
-- Research methodology recommendation based on project details and questionnaire
-- Chat interface for asking questions about research methodology
-- RAG-powered responses using content from research design books
-- File upload for analysis
+To run the complete Research Assistant platform, you'll need:
 
-## Technologies Used
+- Python 3.9+
+- Node.js 18+
+- Supabase account
+- Google Gemini API key
+- Nomic Embed API access
+- Tavily API key (optional, for enhanced search)
 
-- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
-- **Backend**: FastAPI, Python
-- **Vector Database**: Supabase with pgvector
-- **Embedding Model**: nomic-ai/nomic-embed-text-v1
-- **LLM**: Google Gemini
+### Installation
 
-## License
+1. **Clone the repository**
 
-[MIT License](LICENSE)
+```bash
+git clone https://github.com/yourusername/research-assistant.git
+cd research-assistant
+```
 
-## Abstract
-Development of Research Assistant with Adaptive AI Software: Enhancing Academic Research Efficiency 
+2. **Set up the backend**
 
-Simon Derstine, Kenny Snyder, Elina Ivanova, Patrick Rockow 
+```bash
+cd backend
 
-Organizing and structuring academic research can be complex, and researchers often struggle with handling large amounts of information, developing a clear framework, and extracting key insights from various sources. The AI research assistant software streamlines this process by using a framework suggested in the book: "Research Design: Qualitative and Quantitative, and Mixed Methods Approaches". The app features a conversational interface that walks a user through a step-by-step process with guided questions tailored to the type of research being conducted.  
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-As students' progress through each stage, the AI Assistant uses carefully designed questions to guide them in developing research questions, creating outlines, conducting literature reviews, and structuring their arguments effectively.  The system leverages a Large Language Model (LLM) combined with Retrieval-Augmented Generation (RAG) to provide contextually relevant guidance based on the research book's framework. This architecture ensures that the assistant's responses are both grounded in established research methodology and dynamically adapted to each user's specific research context. 
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your API keys and credentials
+```
+
+3. **Set up the frontend**
+
+```bash
+cd ../frontend
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+cp .env.example .env.local
+# Edit .env.local with your API keys and credentials
+```
+
+4. **Start the services**
+
+In one terminal (backend):
+```bash
+cd backend
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m main
+```
+
+In another terminal (frontend):
+```bash
+cd frontend
+npm run dev
+```
+
+5. **Access the application**
+
+Open your browser and navigate to [http://localhost:3000](http://localhost:3000)
+
+## 🔄 Project Workflow
+
+The Research Assistant guides users through a structured 10-step process:
+
+1. **Project Initialization**: Define project title, description, and goals
+2. **Research Approach Selection**: Choose between qualitative, quantitative, or mixed methods
+3. **Literature Review**: Upload and analyze relevant literature
+4. **Theory Selection**: Identify and integrate appropriate theoretical frameworks
+5. **Ethics Planning**: Address research ethics and compliance
+6. **Introduction Drafting**: Create a compelling research introduction
+7. **Purpose Statement**: Craft a clear, focused purpose statement
+8. **Research Questions/Hypotheses**: Formulate precise research questions
+9. **Methodology Design**: Define data collection and analysis methods
+10. **Proposal Compilation**: Finalize and review the complete research proposal
+
+## 🧠 AI Capabilities
+
+The Research Assistant leverages Google's Gemini AI to provide:
+
+- **Research Design Expertise**: Guidance based on established methodology
+- **Literature Analysis**: Help with synthesizing research papers
+- **Contextual Assistance**: Answers informed by both the research textbook and user uploads
+- **Method-Specific Advice**: Tailored guidance for qualitative, quantitative, or mixed methods
+- **Writing Support**: Help with formulating research questions, purpose statements, etc.
+
+## 🔧 Technical Details
+
+### Database Schema
+
+The system uses Supabase with the following main tables:
+
+- **projects**: Stores research project metadata
+- **sources**: Contains document chunks and embeddings
+- **chatmessages**: Archives conversation history by project
+- **pdfs**: Tracks uploaded documents and their metadata
+
+### API Endpoints
+
+The backend provides RESTful endpoints for:
+
+- **Project Management**: Create and update research projects
+- **Document Processing**: Upload and analyze PDFs and other documents
+- **AI Interaction**: Query the AI assistant with project context
+- **Document Retrieval**: Search for relevant information across documents
+
+### Authentication Flow
+
+The system uses Supabase Auth for:
+
+- User registration and login
+- Session management
+- Route protection for authenticated resources
+- Project access control
+
+## 📊 Performance Optimization
+
+The Research Assistant is optimized for:
+
+- **Efficient Document Processing**: Multi-stage PDF processing pipeline
+- **Fast Semantic Search**: Vector embeddings with optimized similarity search
+- **Responsive UI**: Split client/server rendering with Next.js
+- **AI Response Speed**: Optimized context retrieval and prompt engineering
+- **Scalable Architecture**: Clean separation of concerns between frontend and backend
+
+## 🔐 Security Features
+
+The system implements several security best practices:
+
+- API keys stored as environment variables
+- User authentication and authorization controls
+- Input validation on all endpoints
+- Secure document storage with access controls
+- Error handling that prevents information leakage
+
+## 🚀 Deployment
+
+### Backend Deployment
+
+The backend can be deployed using:
+
+```bash
+# Build the Docker image
+docker build -t research-assistant-backend ./backend
+
+# Run the container
+docker run -p 8000:8000 --env-file ./backend/.env research-assistant-backend
+```
+
+### Frontend Deployment
+
+The frontend is best deployed on Vercel:
+
+1. Connect your GitHub repository to Vercel
+2. Configure environment variables in Vercel dashboard
+3. Deploy with the default Next.js settings
+
+Alternative deployment options include Netlify, AWS Amplify, or Docker containers.
+
+## 📚 Resources
+
+- [Research Design: Qualitative, Quantitative, and Mixed Methods Approaches](https://us.sagepub.com/en-us/nam/research-design/book255675)
+- [Google Gemini AI Documentation](https://ai.google.dev/docs)
+- [Supabase Documentation](https://supabase.com/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+
+## 🤝 Contributing
+
+We welcome contributions to the Research Assistant platform:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgements
+
+- John W. Creswell and J. David Creswell for their research methodology framework
+- The developers of the open-source libraries used in this project
+- All contributors who have helped improve the Research Assistant platform

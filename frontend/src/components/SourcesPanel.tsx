@@ -18,6 +18,13 @@ interface UploadingFile {
   id: string;
 }
 
+// Add new interface for queued files
+interface QueuedFile {
+  file: File;
+  id: string;
+  name: string;
+}
+
 interface SourcesPanelProps {
   onFileUpload: (file: File) => void;
   projectId: number;
@@ -62,7 +69,14 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeStep, setActiveStep] = useState<'gaps' | 'results'>('gaps');
   
+  // New states for upload modal
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const multiFileInputRef = useRef<HTMLInputElement>(null);
   const sourcesLoaded = useRef(false);
   
   // Helper function to get the best display name for a source
@@ -214,6 +228,119 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
       const file = event.target.files[0];
       handleFileUpload(file);
     }
+  };
+  
+  // Handle drag and drop
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+  
+  // Helper to check if file type is acceptable
+  const isValidFileType = (file: File): boolean => {
+    const validTypes = [
+      'application/pdf',
+      'text/plain',
+      'text/markdown',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    // Also check file extension as a fallback
+    const validExtensions = ['.pdf', '.txt', '.md', '.doc', '.docx'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+    
+    return validTypes.includes(file.type) || hasValidExtension;
+  };
+  
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      // Filter valid files
+      const validFiles = Array.from(e.dataTransfer.files)
+        .filter(isValidFileType)
+        .map(file => ({
+          file,
+          id: `queued-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          name: file.name
+        }));
+      
+      if (validFiles.length > 0) {
+        setQueuedFiles(prev => [...prev, ...validFiles]);
+      }
+      
+      // Alert if some files were invalid
+      const invalidCount = e.dataTransfer.files.length - validFiles.length;
+      if (invalidCount > 0) {
+        alert(`${invalidCount} ${invalidCount === 1 ? 'file was' : 'files were'} not added because they are not supported. Please use PDF, TXT, MD, DOC, or DOCX files.`);
+      }
+    }
+  };
+  
+  // New handler for multi-file selection with validation
+  const handleMultiFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      // Filter valid files
+      const validFiles = Array.from(event.target.files)
+        .filter(isValidFileType)
+        .map(file => ({
+          file,
+          id: `queued-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          name: file.name
+        }));
+      
+      if (validFiles.length > 0) {
+        setQueuedFiles(prev => [...prev, ...validFiles]);
+      }
+      
+      // Alert if some files were invalid
+      const invalidCount = event.target.files.length - validFiles.length;
+      if (invalidCount > 0) {
+        alert(`${invalidCount} ${invalidCount === 1 ? 'file was' : 'files were'} not added because they are not supported. Please use PDF, TXT, MD, DOC, or DOCX files.`);
+      }
+      
+      // Reset file input
+      if (multiFileInputRef.current) multiFileInputRef.current.value = "";
+    }
+  };
+  
+  // Remove a file from the queue
+  const removeQueuedFile = (id: string) => {
+    setQueuedFiles(prev => prev.filter(f => f.id !== id));
+  };
+  
+  // Upload all queued files
+  const uploadQueuedFiles = async () => {
+    if (queuedFiles.length === 0) return;
+    
+    setIsUploading(true);
+    
+    // Process files one by one
+    for (const queuedFile of queuedFiles) {
+      await handleFileUpload(queuedFile.file);
+    }
+    
+    // Clear queue and close modal
+    setQueuedFiles([]);
+    setShowUploadModal(false);
+    setIsUploading(false);
+  };
+  
+  // Open upload modal
+  const openUploadModal = () => {
+    setShowUploadModal(true);
+    setQueuedFiles([]);
   };
   
   const handleFileUpload = async (file: File) => {
@@ -672,7 +799,7 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
       <div className="p-3">
         <button 
           className="w-full flex items-center justify-center gap-2 p-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={openUploadModal}
           disabled={isLoading}
         >
           <FiPlus className="w-4 h-4" />
@@ -686,6 +813,18 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           className="hidden"
           onChange={handleFileSelect}
           disabled={isLoading}
+        />
+        
+        {/* Hidden multi-file input for modal */}
+        <input
+          ref={multiFileInputRef}
+          id="multi-source-file-upload"
+          type="file"
+          accept=".pdf,.txt,.md,.doc,.docx"
+          multiple
+          className="hidden"
+          onChange={handleMultiFileSelect}
+          disabled={isLoading || isUploading}
         />
         
         {/* Suggest More Sources Button */}
@@ -740,6 +879,104 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Source Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-white">
+              <h2 className="text-lg font-semibold text-indigo-900">Source Upload</h2>
+              <button 
+                onClick={() => setShowUploadModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+                disabled={isUploading}
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* File dropzone */}
+              <div 
+                className={`border-2 border-dashed ${isDragging ? 'border-indigo-500 bg-indigo-100' : 'border-indigo-300 bg-indigo-50 hover:bg-indigo-100'} rounded-lg transition-colors p-8 flex flex-col items-center justify-center cursor-pointer`}
+                onClick={() => multiFileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className={`w-20 h-20 ${isDragging ? 'bg-indigo-300' : 'bg-indigo-200'} rounded-full flex items-center justify-center mb-4 transition-colors`}>
+                  <FiPlus className={`w-10 h-10 ${isDragging ? 'text-indigo-700' : 'text-indigo-600'}`} />
+                </div>
+                <p className="text-indigo-800 font-medium mb-1">
+                  {isDragging ? 'Drop Files Here' : 'Add Source Files'}
+                </p>
+                <p className="text-gray-600 text-sm text-center">
+                  {isDragging ? 'Release to add files' : 'Click to browse or drag files here'}<br />
+                  Support PDF, Word, TXT, and Markdown files
+                </p>
+              </div>
+              
+              {/* Queued files list */}
+              {queuedFiles.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Files to Upload ({queuedFiles.length})</h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {queuedFiles.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                        <div className="flex items-center gap-2 overflow-hidden flex-1">
+                          <FiFile className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                          <span className="text-sm text-black truncate">{file.name}</span>
+                        </div>
+                        {!isUploading && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeQueuedFile(file.id);
+                            }}
+                            className="text-gray-400 hover:text-red-600 p-1"
+                          >
+                            <FiX size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200">
+              {isUploading ? (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Uploading sources...</p>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-indigo-500 animate-pulse"
+                      style={{ width: '100%' }}
+                    ></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 p-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setShowUploadModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="flex-1 flex items-center justify-center gap-2 p-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={uploadQueuedFiles}
+                    disabled={queuedFiles.length === 0}
+                  >
+                    <span>Upload {queuedFiles.length > 0 ? `(${queuedFiles.length})` : ''}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
