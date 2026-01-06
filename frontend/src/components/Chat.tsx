@@ -37,28 +37,19 @@ export default function Chat({ onSendMessage, messages, isLoading, userId, proje
 
   // Generate session ID on mount only if there are no messages
   useEffect(() => {
-    try {
-      if (messages.length === 0) {
-        const newSessionId = uuidv4();
-        console.log('Generated new session ID for new conversation:', newSessionId);
-        setSessionId(newSessionId);
-        onSessionIdChange?.(newSessionId);
-      }
-    } catch (err) {
-      console.error('Error generating session ID:', err);
+    if (messages.length === 0) {
+      const newSessionId = uuidv4();
+      setSessionId(newSessionId);
+      onSessionIdChange?.(newSessionId);
     }
   }, []);
 
   // Add session refresh on component mount
   useEffect(() => {
     const refreshSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (!session || error) {
-          await supabase.auth.refreshSession();
-        }
-      } catch (err) {
-        console.error('Error refreshing session:', err);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (!session || error) {
+        await supabase.auth.refreshSession();
       }
     };
     refreshSession();
@@ -68,7 +59,6 @@ export default function Chat({ onSendMessage, messages, isLoading, userId, proje
   useEffect(() => {
     if (messages.length === 0) {
       const newSessionId = uuidv4();
-      console.log('Generated new session ID for cleared conversation:', newSessionId);
       setSessionId(newSessionId);
       onSessionIdChange?.(newSessionId);
     }
@@ -88,13 +78,7 @@ export default function Chat({ onSendMessage, messages, isLoading, userId, proje
 
     const message = input.trim();
     setInput('');
-    
-    try {
-      // Send message through normal channel
-      await onSendMessage(message);
-    } catch (error) {
-      console.error('Error in handleSubmit:', error);
-    }
+    await onSendMessage(message);
   };
 
   return (

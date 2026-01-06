@@ -4,8 +4,6 @@ A comprehensive platform for academic research workflow management, powered by A
 
 **This project was developed for the Software Engineering class at the University of Findlay.**
 
-![Research Assistant Platform](https://example.com/research-assistant-screenshot.png)
-
 ## 🌟 Overview
 
 The Research Assistant serves as an intelligent companion for academic researchers, providing:
@@ -116,8 +114,8 @@ To run the complete Research Assistant platform, you'll need:
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/yourusername/research-assistant.git
-cd research-assistant
+git clone https://github.com/phizzog/Research_Assistant.git
+cd Research_Assistant
 ```
 
 2. **Set up the backend**

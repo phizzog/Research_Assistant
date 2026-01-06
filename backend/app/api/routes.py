@@ -14,7 +14,6 @@ from app.services.document_service import (
 from app.services.pdf_ingestion_service import PDFIngestionService
 from app.core.ai import generate_response
 from app.core.config import logger
-from typing import Optional, List
 import requests
 import json
 import random

@@ -92,12 +92,10 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
     // Don't fetch if we're already refreshing
     if (refreshing) return;
     
-    console.log(`Fetching sources for project ${projectId}`);
     setRefreshing(true);
     try {
       // First, check if the sources column exists in the projects table
       try {
-        console.log(`Querying Supabase directly for project ${projectId} sources`);
         const { data: columnData, error: columnError } = await supabase
           .from('projects')
           .select('sources')
@@ -105,12 +103,9 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           .single();
           
         if (columnError) {
-          console.error('Error checking sources column:', columnError);
         } else {
-          console.log(`Supabase response for project ${projectId}:`, columnData);
           
           if (columnData && columnData.sources) {
-            console.log(`Sources from Supabase for project ${projectId}:`, columnData.sources);
             
             // Transform the sources to include selected state and editing state
             const sourcesWithSelection = (columnData.sources || []).map((source: Source) => {
@@ -130,7 +125,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
               };
             });
 
-            console.log(`Transformed sources with selection:`, sourcesWithSelection);
             setSources(sourcesWithSelection);
             
             // Immediately notify parent of selected document IDs
@@ -138,10 +132,8 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
               const selectedIds = sourcesWithSelection
                 .filter((source: SourceWithState) => source.selected)
                 .map((source: SourceWithState) => source.document_id);
-              console.log('Initial source selection:', selectedIds);
               onSourceSelectionChange(selectedIds);
             } else {
-              console.log('No sources to select or onSourceSelectionChange not provided');
             }
             
             sourcesLoaded.current = true;
@@ -149,22 +141,17 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
             setIsLoading(false);
             return;
           } else {
-            console.log(`No sources found in columnData or columnData.sources is null/undefined`);
           }
         }
       } catch (error) {
-        console.error('Error in direct Supabase query:', error);
       }
       
       // If direct query fails or returns no sources, try using the API
       try {
-        console.log(`Falling back to API getProjectById(${projectId})`);
         // Get the project data which includes the sources field
         const project = await getProjectById(projectId);
-        console.log(`API response for project ${projectId}:`, project);
         
         if (project && project.sources) {
-          console.log(`Sources from API for project ${projectId}:`, project.sources);
           
           // Transform the sources to include selected state and editing state
           const sourcesWithSelection = (project.sources || []).map((source: Source) => {
@@ -184,7 +171,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
             };
           });
 
-          console.log(`Transformed sources with selection from API:`, sourcesWithSelection);
           setSources(sourcesWithSelection);
           
           // Immediately notify parent of selected document IDs
@@ -192,23 +178,18 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
             const selectedIds = sourcesWithSelection
               .filter((source: SourceWithState) => source.selected)
               .map((source: SourceWithState) => source.document_id);
-            console.log('Initial source selection (from API):', selectedIds);
             onSourceSelectionChange(selectedIds);
           } else {
-            console.log('No sources to select from API or onSourceSelectionChange not provided');
           }
         } else {
-          console.log(`No sources found in project response from API`);
           setSources([]);
         }
         
         sourcesLoaded.current = true;
       } catch (error) {
-        console.error('Error fetching project via API:', error);
         setSources([]);
       }
     } catch (error) {
-      console.error('Error in fetchSources:', error);
       setSources([]);
     } finally {
       setRefreshing(false);
@@ -400,7 +381,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
         fetchSources(); // Refresh sources after successful upload
       }, 1000);
     } catch (error) {
-      console.error('Error uploading file:', error);
       clearInterval(progressInterval);
       
       // Mark as failed
@@ -435,7 +415,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
       const selectedIds = updatedSources
         .filter((source: SourceWithState) => source.selected)
         .map((source: SourceWithState) => source.document_id);
-      console.log('Source selection toggled:', selectedIds);
       onSourceSelectionChange(selectedIds);
     }
   };
@@ -451,7 +430,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
       const selectedIds = newSelectedState ? 
         updatedSources.map((source: SourceWithState) => source.document_id) : 
         [];
-      console.log('All sources toggled:', selectedIds);
       onSourceSelectionChange(selectedIds);
     }
   };
@@ -503,7 +481,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
         .single();
         
       if (projectError) {
-        console.error('Error fetching project:', projectError);
         return;
       }
       
@@ -526,7 +503,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
         .eq('project_id', projectId);
         
       if (updateError) {
-        console.error('Error updating source name:', updateError);
         return;
       }
 
@@ -544,7 +520,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           : source
       ));
     } catch (error) {
-      console.error('Error saving source name:', error);
     }
   };
 
@@ -555,18 +530,15 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
     }
     
     try {
-      console.log(`Deleting source with document_id: ${documentId}`);
       
       // Try calling the Supabase function first if it exists
       try {
-        console.log('Attempting to use Supabase function for deletion');
         const { data: functionData, error: functionError } = await supabase.rpc('delete_source_complete', {
           doc_id: documentId,
           proj_id: projectId
         });
         
         if (!functionError) {
-          console.log('Source deleted successfully via Supabase function:', functionData);
           
           // Update local state
           setSources(sources.filter(source => source.document_id !== documentId));
@@ -581,11 +553,8 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           
           return;
         } else {
-          console.log('Supabase function not available or failed, falling back to client-side deletion');
-          console.error('Function error:', functionError);
         }
       } catch (fnError) {
-        console.log('Supabase function not found, using client-side deletion instead');
       }
       
       // Fall back to client-side deletion if the function doesn't exist or fails
@@ -597,7 +566,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
         .single();
         
       if (projectError) {
-        console.error('Error fetching project for deletion:', projectError);
         alert('Error deleting source: Could not fetch project data');
         return;
       }
@@ -614,7 +582,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
         .eq('project_id', projectId);
         
       if (updateError) {
-        console.error('Error updating project sources:', updateError);
         alert('Error deleting source: Could not update project sources');
         return;
       }
@@ -626,7 +593,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
         .eq('document_id', documentId);
         
       if (deleteError) {
-        console.error('Error deleting source chunks:', deleteError);
         alert('Source removed from project but some data may remain in the database');
       }
       
@@ -641,10 +607,8 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
         onSourceSelectionChange(selectedIds);
       }
       
-      console.log(`Source ${documentId} deleted successfully via client-side deletion`);
       
     } catch (error) {
-      console.error('Error in deleteSource:', error);
       alert('An error occurred while deleting the source');
     }
   };
@@ -678,10 +642,8 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           projectTitle = project.project_name || "";
           projectGoals = project.description || "";
           projectSources = project.sources || [];
-          console.log("Retrieved project data from API:", { projectTitle, projectGoals, sourcesCount: projectSources.length });
         }
       } catch (apiError) {
-        console.log("Error retrieving project from API, trying Supabase directly:", apiError);
         
         // Fall back to direct Supabase query
         const { data: projectData, error: projectError } = await supabase
@@ -691,7 +653,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           .single();
           
         if (projectError) {
-          console.error('Error fetching project data:', projectError);
           throw new Error("Could not retrieve project data");
         }
         
@@ -699,7 +660,6 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
           projectTitle = projectData.project_name || "";
           projectGoals = projectData.description || "";
           projectSources = projectData.sources || [];
-          console.log("Retrieved project data from Supabase:", { projectTitle, projectGoals, sourcesCount: projectSources.length });
         }
       }
       
@@ -728,13 +688,11 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
       }
       
       const result = await response.json();
-      console.log('Knowledge gaps result:', result);
       
       // Set the knowledge gaps
       setKnowledgeGaps(result.identified_gaps || []);
       
     } catch (error) {
-      console.error('Error identifying knowledge gaps:', error);
       alert('Error identifying knowledge gaps. Please try again later.');
     } finally {
       setAnalysisLoading(false);
@@ -768,13 +726,11 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({
       }
       
       const result = await response.json();
-      console.log('Search results:', result);
       
       // Set the search results
       setSearchResults(result.results || []);
       
     } catch (error) {
-      console.error('Error searching for sources:', error);
       alert('Error searching for sources. Please try again later.');
     } finally {
       setSearchLoading(false);
